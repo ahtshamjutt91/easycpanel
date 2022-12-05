@@ -165,7 +165,7 @@ sleep 3
 ###
 #This will download and install the custom PHP Profile with all the required PHP versions and PHP Extensions required for websites, CMS scripts and Server.
 ###
-wget https://ahtshamjutt.com/cpanel-script/php748081_worker.json -P /etc/cpanel/ea4/profiles/custom/ ;
+wget https://github.com/ahtshamjutt91/easycpanel/blob/main/php748081_worker.json -P /etc/cpanel/ea4/profiles/custom/ ;
 yes | /usr/local/bin/ea_install_profile --install /etc/cpanel/ea4/profiles/custom/php748081_worker.json ;
 echo ""
 echo ""
@@ -458,7 +458,7 @@ perl -pi -e "s/#PrintMotd yes/PrintMotd no/g" /etc/ssh/sshd_config ;
 echo ""
 systemctl restart sshd ;
 cd /etc/profile.d/ ;
-curl -o login-info.sh -L https://ahtshamjutt.com/cpanel-script/login-info.sh ;
+curl -o login-info.sh -L https://github.com/ahtshamjutt91/easycpanel/blob/main/login-info.sh ;
 chmod +x login-info.sh ;
 echo ""
 echo ""
