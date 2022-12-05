@@ -2,8 +2,8 @@
 
 
 ## Description: 
-If you are a new cPanel user and or an experienced Linux System Admin or Web Hosting provider who offers cPanel Servers and want to save time, this script is for you. 
-This Bash Script can install cPanel, configure it, optimize it and harden the server security. Just run this script on a CentOS Server and this Script will take care of all the required cPanel Server Tasks.
+If you are a new cPanel user, an experienced Linux System Admin or Web Hosting provider who offers cPanel Servers and want to save time, this script is for you. 
+This Bash Script can install, configure, optimize  cPanel and solidify the server security. Just run this script on a CentOS Server and this Script will take care the rest of cPanel Server Tasks.
 
 ## Requirements:
 
