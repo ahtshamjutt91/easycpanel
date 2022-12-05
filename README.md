@@ -11,7 +11,8 @@ This Bash Script can install, configure, optimize  cPanel and solidify the serve
 CentOS 7 64bit, AmlaLinux OS 8 64bit, CloudLinux 6, 7 or 8 64bit
 
 #### Server Requirements: 
-VPS or Dedicated Server with Minimum 1GB RAM, Recommended 2GB RAM. Minimum Disk Space 20GB, Recommended 40GB.
+VPS or Dedicated Server with Minimum 1GB RAM, Recommended 2GB RAM. 
+Minimum Disk Space 20GB, Recommended 40GB.
 Blank Server Recommended, However you can run this script on current active server to optimize and secure it.
 
 #### License:
