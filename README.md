@@ -1,4 +1,4 @@
-# easycpanel (1 Click cPanel Server Security & Optimization Script)
+# EasycPanel (1 Click cPanel Server Security & Optimization Script)
 
 
 ## Description: 
