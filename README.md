@@ -20,6 +20,13 @@ cPanel License Recommended (Script can run without license as well). CloudLinux 
 
 ## Installation: 
 Login to your Linux Server with root user and run the following command. Provide your Main Domain (for nameservers and hostname) and Email for Server Notifications.
+
+To run the Script locally, please clone the repositry and then run the following command, 
+
+````
+chmod +x script.sh && sh script.sh
+````
+If you want to run the script directly on the Server with single command, please copy the following command and paste in your Server SSH. 
 ````
 curl -O https://ahtshamjutt.com/cpanel-script/cPanel-v1.1.sh && chmod +x cPanel-v1.1.sh && sh cPanel-v1.1.sh
 ````
