@@ -24,7 +24,7 @@ Login to your Linux Server with root user and run the following command. Provide
 To run the Script locally, please clone the repositry and then run the following command, 
 
 ````
-chmod +x script.sh && sh script.sh
+cd easycpanel && chmod +x script.sh && sh script.sh
 ````
 If you want to run the script directly on the Server with single command, please copy the following command and paste in your Server SSH. 
 ````
