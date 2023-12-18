@@ -11,7 +11,7 @@ This Bash Script can install, configure, optimize  cPanel and solidify the serve
 AmlaLinux OS 8 64bit, CloudLinux 6, 7 or 8 64bit (CentOS 7 Not Recommended)
 
 #### Server Requirements: 
-- VPS or Dedicated Server with Minimum 1GB RAM, Recommended 2GB RAM. 
+- VPS or Dedicated Server with Minimum 2GB RAM, Recommended 4GB RAM. 
 - Minimum Disk Space 20GB, Recommended 40GB.
 - Blank Server Recommended, However you can run this script on current active server to optimize and secure it.
 
@@ -24,15 +24,32 @@ Login to your Linux Server with root user and run the following command. Provide
 To run the Script locally, please clone the repositry and then run the following command, 
 
 ````
-cd easycpanel && chmod +x cPanel-v2.sh && sh cPanel-v2.sh
+cd easycpanel && chmod +x cPanel-v3.sh && sh cPanel-v3.sh
 ````
 If you want to run the script directly on the Server with single command, please copy the following command and paste in your Server SSH. 
 ````
-curl -O https://ahtshamjutt.com/cpanel-script/cPanel-v2.sh && chmod +x cPanel-v2.sh && sh cPanel-v2.sh
+curl -O https://ahtshamjutt.com/cpanel-script/cPanel-v3.sh && chmod +x cPanel-v3.sh && sh cPanel-v3.sh
 ````
 
 ## License: 
 Freeware
+
+## **Whats New in EasycPanel V3 version?**
+We've supercharged EasycPanel v3 with a host of exciting updates and enhancements, focusing on performance optimization and security. Here's what you can expect in this latest version:
+
+    Nginx and Apache Web Servers - Now with MPM-Event and HTTP/2: We've dialed up the efficiency of both Nginx and Apache, integrating highly optimized MPM-Event and HTTP/2 support. This means faster, more responsive web services for your users.
+
+    MySQL / MariaDB Basic Optimization: We've tinkered under the hood of MySQL and MariaDB, adding basic optimization to improve performance without sacrificing stability.
+
+    Stepped-Up Server Security: Your security is paramount. That's why we've enhanced server security protocols to keep your data safer than ever.
+
+    Configured CSF Firewall - More Options, More Security: We've supercharged the CSF Firewall, adding a plethora of options to boost both website and server security.
+
+    Cloudflare Support for Nginx / Engintron: For sites using Cloudflare, we've enabled support by default in Nginx/Engintron, ensuring seamless integration and enhanced performance.
+
+    Micro Caching in Nginx / Engintron - Disabled by Default: To prevent session conflicts, we've turned off micro caching in Nginx/Engintron. Your user sessions are now smoother and more reliable.
+
+And that's just the start! EasycPanel v3 is packed with numerous other enhancements and features, all designed to make your web hosting experience smoother, safer, and more efficient.
 
 ## Detailed Description: 
 This is a free-to-use Bash script that allows you to easily install cPanel, optimize it, and enhance its security with a single command. You can utilize this script on a blank server or an existing cPanel server, making it suitable for both new and experienced cPanel users.
