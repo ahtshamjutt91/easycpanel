@@ -1,12 +1,9 @@
 #!/bin/bash
 
 echo "######################################################################"
-echo "#                                                                    #"
 echo "#                          Welcome Back                              #"
 echo "#                                                                    #"
-echo "#        (Server is setup, optimized & secured by AhtshamJutt.com)   #"
-echo "#              Email for queries: me@ahtshamjutt.com                 #"
-echo "#                                                                    #"
+echo "#        (Server is setup, optimized & secured by PanelBot.IO)       #"
 echo "######################################################################"
 
 
