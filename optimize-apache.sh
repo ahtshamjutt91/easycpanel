@@ -1,10 +1,10 @@
 #!/bin/bash
 echo "######################################################################"
 echo "#                                                                    #"
-echo "#         cPanel Confiugration, Hardening & Security Script          #"
+echo "#         cPanel Configuration, Hardening & Security Script          #"
 echo "#                                                                    #"
-echo "#              (Created by Panel Bot panelbot.io)                    #"
-echo "#              Email for queries: info@panelbot.io                   #"
+echo "#               Created by Ahtsham Jutt - ahtshamjutt.com            #"
+echo "#                  Email for queries: me@ahtshamjutt.com             #"
 echo "#                                                                    #"
 echo "######################################################################"
 echo ""
