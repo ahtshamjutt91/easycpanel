@@ -499,7 +499,7 @@ perl -pi -e 's/UDP_IN = ".*"/UDP_IN = "20,21,53"/g' /etc/csf/csf.conf ;
 log "Opened specified UDP ports for incoming traffic."
 perl -pi -e 's/UDP_OUT = ".*"/UDP_OUT = "20,21,53,113,123,873,6277"/g' /etc/csf/csf.conf ;
 log "Allowed outgoing connections on specified UDP ports."
-perl -pi -e 's/ICMP_IN_RATE = ".*"/ICMP_IN_RATE = "50/s"/g' /etc/csf/csf.conf ;
+perl -pi -e 's/ICMP_IN_RATE = ".*"/ICMP_IN_RATE = "50\/s"/g' /etc/csf/csf.conf ;
 log "Set ICMP rate limit to 50 per second."
 perl -pi -e 's/USE_CONNTRACK = ".*"/USE_CONNTRACK = "0"/g' /etc/csf/csf.conf ;
 log "Disabled connection tracking for performance optimization."
