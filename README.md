@@ -1,64 +1,143 @@
-# EasycPanel (1 Click cPanel Server Security & Optimization Script)
+# EasycPanel v4 - The Ultimate cPanel Server Management Solution
 
+![EasycPanel Banner](https://ahtshamjutt.com/cpanel-script/easycpanel-banner.png)
 
-## Description: 
-If you are a new cPanel user, an experienced Linux System Admin or Web Hosting provider who offers cPanel Servers and want to save time, this script is for you. 
-This Bash Script can install, configure, optimize  cPanel and solidify the server security. Just run this script on a AlmaLinux Server and this Script will take care the rest of cPanel Server Tasks.
+## Overview
+EasycPanel is the ultimate, free, one-click solution for installing, configuring, optimizing, and securing cPanel servers. Perfect for both novice and experienced system administrators, this powerful script handles everything from initial setup to performance tuning and security hardening.
 
-## Requirements:
+## Why Choose EasycPanel?
+- **Save Time**: Complete setup in minutes, not hours
+- **Optimize Performance**: Pre-configured for maximum efficiency
+- **Enhance Security**: Robust security measures implemented automatically
+- **Flexibility**: Works on fresh servers or existing installations
+- **Revertible**: Comprehensive backup and reversion capabilities
 
-#### OS Requirements: 
-AmlaLinux OS 8 64bit, CloudLinux 6, 7 or 8 64bit (CentOS 7 Not Recommended)
+## Requirements
 
-#### Server Requirements: 
-- VPS or Dedicated Server with Minimum 2GB RAM, Recommended 4GB RAM. 
-- Minimum Disk Space 20GB, Recommended 40GB.
-- Blank Server Recommended, However you can run this script on current active server to optimize and secure it.
+### Operating System
+- AlmaLinux 8/9 (64-bit) - **Recommended**
+- CloudLinux 8/9 (64-bit)
 
-#### License:
-cPanel License Recommended (Script can run without license as well). CloudLinux License required if running CL OS. 
+### Hardware
+- **Minimum**: 2GB RAM, 20GB Disk Space
+- **Recommended**: 4GB+ RAM, 40GB+ Disk Space
 
-## Installation: 
-Login to your Linux Server with root user and run the following command. Provide your Main Domain (for nameservers and hostname) and Email for Server Notifications.
+### Licensing
+- cPanel License (recommended but not required)
+- CloudLinux License (if using CloudLinux OS)
 
-To run the Script locally, please clone the repositry and then run the following command, 
+## Installation
 
-````
-cd easycpanel && chmod +x cPanel-v3.sh && sh cPanel-v3.sh
-````
-If you want to run the script directly on the Server with single command, please copy the following command and paste in your Server SSH. 
-````
-curl -O https://ahtshamjutt.com/cpanel-script/cPanel-v3.sh && chmod +x cPanel-v3.sh && sh cPanel-v3.sh
-````
+### Quick Install
+Run this single command on your server:
 
-## License: 
-Freeware
+```bash
+curl -O https://ahtshamjutt.com/cpanel-script/cPanel-v4.sh && chmod +x cPanel-v4.sh && sh cPanel-v4.sh
+```
 
-## **Whats New in EasycPanel V3 version?**
-We've supercharged EasycPanel v3 with a host of exciting updates and enhancements, focusing on performance optimization and security. Here's what you can expect in this latest version:
+### From Repository
+Clone and run:
 
-    Nginx and Apache Web Servers - Now with MPM-Event and HTTP/2: We've dialed up the efficiency of both Nginx and Apache, integrating highly optimized MPM-Event and HTTP/2 support. This means faster, more responsive web services for your users.
+```bash
+git clone https://github.com/ahtshamjutt/easycpanel.git
+cd easycpanel && chmod +x cPanel-v4.sh && sh cPanel-v4.sh
+```
 
-    MySQL / MariaDB Basic Optimization: We've tinkered under the hood of MySQL and MariaDB, adding basic optimization to improve performance without sacrificing stability.
+## What's New in Version 4
 
-    Stepped-Up Server Security: Your security is paramount. That's why we've enhanced server security protocols to keep your data safer than ever.
+### Web Server Enhancements
+- **Dual Server Optimization**: Choose between Apache-only or Nginx+Apache stack
+- **Apache Optimization**: MPM-Event with HTTP/2 and dynamic resource allocation
+- **Nginx Integration**: Engintron with advanced caching and Cloudflare compatibility
+- **Server-Specific Tuning**: Automatically adjusts settings based on your hardware
 
-    Configured CSF Firewall - More Options, More Security: We've supercharged the CSF Firewall, adding a plethora of options to boost both website and server security.
+### Performance Improvements
+- **Resource-Aware Configuration**: Adjusts resource allocation based on server usage type
+- **Dynamic MySQL Tuning**: Optimizes database performance based on available RAM
+- **PHP-FPM Optimization**: Enhanced PHP performance with optimized settings
+- **Redis Integration**: Improved caching and session handling
 
-    Cloudflare Support for Nginx / Engintron: For sites using Cloudflare, we've enabled support by default in Nginx/Engintron, ensuring seamless integration and enhanced performance.
+### Security Enhancements
+- **Advanced CSF Configuration**: Comprehensive firewall with DDoS protection
+- **ModSecurity with OWASP Rules**: Enterprise-grade web application firewall
+- **ImunifyAV Integration**: Malware scanning and protection
+- **Comprehensive Hardening**: Symlink protection, compiler restrictions, and more
 
-    Micro Caching in Nginx / Engintron - Disabled by Default: To prevent session conflicts, we've turned off micro caching in Nginx/Engintron. Your user sessions are now smoother and more reliable.
+### CMS Optimizations
+- **WordPress-Specific Rules**: Performance tweaks for WordPress sites
+- **Media Caching**: Optimized handling of static files
+- **Browser Caching**: Improved client-side caching for faster repeat visits
 
-And that's just the start! EasycPanel v3 is packed with numerous other enhancements and features, all designed to make your web hosting experience smoother, safer, and more efficient.
+### System Management
+- **Backup System**: Comprehensive backup of all configurations
+- **Reversion Capability**: Easy rollback to previous state if needed
+- **SSH Security**: Automated SSH hardening with custom port options
+- **Service Monitoring**: Enhanced monitoring of critical services
 
-## Detailed Description: 
-This is a free-to-use Bash script that allows you to easily install cPanel, optimize it, and enhance its security with a single command. You can utilize this script on a blank server or an existing cPanel server, making it suitable for both new and experienced cPanel users.
+## Usage Options
 
-The script handles the entire cPanel installation process, including activating the cPanel license and configuring it to run all CMS websites. It ensures the security of your cPanel server by changing the SSH port, installing a firewall, and automatically updating the firewall rules to reflect the new SSH port.
+### Fresh Installation
+Use EasycPanel to set up a new cPanel server from scratch with optimal configuration.
 
-Additionally, the script takes care of installing various PHP versions, extensions, and modules. It configures all the necessary tweak settings, as well as installs and secures memcache and ImageMagick. Furthermore, it offers options to optimize or configure Apache, install or optimize nGinx, and configure and optimize it accordingly.
+### Server Optimization
+Run on an existing server to optimize and secure it without reinstallation.
 
-This script incorporates all the relevant cPanel commands documented in the cPanel Docs. The Bash file is unencrypted, freely usable, and redistributable (though credit is required).
+### Configuration Reversion
+Use the included reversion script to roll back changes if needed:
 
-## Author: 
-Script is written by Ahtsham Jutt ( https://www.ahtshamjutt.com )
+```bash
+bash revert-optimization.sh
+```
+
+## License
+Free to use and redistribute with attribution.
+
+## About the Author
+Created by [Ahtsham Jutt](https://www.ahtshamjutt.com)
+
+## ☕ Support EasycPanel Development
+
+**EasycPanel saves you hours of work - consider buying me a coffee to keep this project alive!**
+
+If EasycPanel has helped you, please consider supporting ongoing development and improvements. Your support directly enables new features, optimizations, and regular updates.
+
+**[☕ Buy Me a Coffee](https://ko-fi.com/ahtshamjutt)**
+
+*Monthly supporters get priority support and early access to new features!*
+
+---
+
+## Detailed Changelog
+
+### Version 4.0 (March 2025)
+- Added adaptive resource allocation based on server type (personal/shared hosting)
+- Implemented comprehensive backup and restoration system
+- Added WordPress-specific optimizations
+- Enhanced Cloudflare integration
+- Improved DDoS protection in CSF firewall
+- Added better media and static file caching
+- Implemented Redis for improved caching
+
+### Version 3.0 (November 2023)
+- Added Nginx and Apache optimization with MPM-Event and HTTP/2
+- Implemented MySQL/MariaDB basic optimization
+- Enhanced server security protocols
+- Configured CSF Firewall with additional options
+- Added Cloudflare support for Nginx/Engintron
+- Disabled micro caching in Nginx/Engintron by default to prevent session conflicts
+
+### Version 2.0 (March 2023)
+- Added PHP 8.1 and 8.2 support
+- Implemented improved security measures
+- Enhanced cPanel configuration options
+- Added more comprehensive logging
+
+### Version 1.0 (January 2022)
+- Initial release with basic cPanel installation and configuration
+- Basic security hardening
+- PHP optimization
+- Apache configuration
+
+---
+
+*EasycPanel is a community-driven project designed to make server management accessible to everyone. Your feedback and contributions help make it better!*
