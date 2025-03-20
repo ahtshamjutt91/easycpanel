@@ -39,7 +39,7 @@ curl -O https://ahtshamjutt.com/cpanel-script/cPanel-v4.sh && chmod +x cPanel-v4
 Clone and run:
 
 ```bash
-git clone https://github.com/ahtshamjutt/easycpanel.git
+git clone https://github.com/ahtshamjutt91/easycpanel.git
 cd easycpanel && chmod +x cPanel-v4.sh && sh cPanel-v4.sh
 ```
 
