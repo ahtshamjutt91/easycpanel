@@ -773,8 +773,8 @@ fi
 cat > /etc/my.cnf << EOF
 [mysqld]
 # Basic Settings
-pid-file                = /var/run/mysqld/mysqld.pid
-socket                  = /var/run/mysqld/mysqld.sock
+pid-file                = /var/lib/mysql/mysqld.pid
+socket                  = /var/lib/mysql/mysqld.sock
 datadir                 = /var/lib/mysql
 
 # MyISAM Settings
