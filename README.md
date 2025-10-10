@@ -109,6 +109,10 @@ If EasycPanel has helped you, please consider supporting ongoing development and
 
 ## Detailed Changelog
 
+### Version 4.0.1 (October 2025)
+- Updated CSF download mirror to resolve firewall installation issue
+- Enabled CSF Messenger service for self-unblock functionality via cPanel/WHM logins
+
 ### Version 4.0 (March 2025)
 - Added adaptive resource allocation based on server type (personal/shared hosting)
 - Implemented comprehensive backup and restoration system

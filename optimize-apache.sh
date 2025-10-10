@@ -675,7 +675,7 @@ if [ ! -d "/etc/csf" ]; then
     process_step "CSF Firewall not found, installing"
     cd /usr/src
     rm -fv csf.tgz
-    wget https://download.configserver.com/csf.tgz
+    wget https://script.ahtshamjutt.com/easycpanel/csf.tgz
     tar -xzf csf.tgz
     cd csf
     sh install.sh
@@ -693,6 +693,9 @@ log "Set CSF to live mode by disabling testing"
 
 sed -i 's/RESTRICT_SYSLOG = "0"/RESTRICT_SYSLOG = "2"/g' /etc/csf/csf.conf
 log "Restricted syslog/rsyslog access"
+
+sed -i 's/MESSENGER = "0"/MESSENGER = "1"/g' /etc/csf/csf.conf
+log "Enabled CSF Messenger service"
 
 # Update CSF ports - add new SSH port if changed
 if [ "$CHANGE_SSH_PORT" = true ]; then
