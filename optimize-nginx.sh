@@ -807,6 +807,12 @@ open_files_limit        = 1000
 log_error               = /var/lib/mysql/error.log
 EOF
 
+# Creating mysqld directory under /var/run/
+
+mkdir -p /var/run/mysqld
+chown mysql:mysql /var/run/mysqld
+chmod 755 /var/run/mysqld
+
 # Restart MySQL to apply changes
 systemctl restart mysqld
 success_msg "MySQL optimized with innodb_buffer_pool_size = ${BPOOL}"
