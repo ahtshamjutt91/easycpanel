@@ -43,6 +43,40 @@ git clone https://github.com/ahtshamjutt91/easycpanel.git
 cd easycpanel && chmod +x cPanel-v4.sh && sh cPanel-v4.sh
 ```
 
+## What's New in Version 4.1
+
+### Reliability Fixes
+- **MySQL/MariaDB configuration fix**: Removed the socket/pid/datadir overrides that caused
+  "MySQL daemon startup failure" and broken client connections on some servers; restarts now
+  use cPanel's own service manager with a health check and automatic rollback to the previous
+  configuration if MySQL fails to come back up
+- **Verified downloads**: All script assets download exclusively from the official project
+  mirror with SHA256 checksum verification — a failed or tampered download aborts the firewall
+  installation instead of silently continuing
+- **Shared library (`lib.sh`)**: All common helpers now live in one file used by every script,
+  so fixes apply everywhere at once; it is fetched automatically from the project mirror when
+  a script is run standalone
+- **Retired ConfigServer add-ons removed**: cmq/cmc (Mail Queue and ModSecurity Control
+  plugins) were discontinued upstream and are no longer installed
+
+### Performance Improvements
+- **PHP-FPM pool tuning**: Pool defaults (max children, request recycling, idle timeout) are
+  now computed from server RAM and your usage profile instead of cPanel's minimal defaults
+- **Opcache tuning**: Right-sized opcache memory and file limits applied to every installed
+  PHP version
+- **Kernel tuning**: BBR congestion control (when the kernel supports it), sensible swappiness,
+  transparent hugepages disabled for MySQL/MariaDB, and tuned connection queues
+- **Faster runs**: Reduced pacing delays save several minutes per run
+
+### Security Enhancements
+- **cPanel license check**: Validates your license at run time, detects the license tier, and
+  warns when the account count exceeds what the tier includes
+- **Secured /tmp**: Mounted with noexec/nosuid via cPanel's securetmp
+- **Redis hardening**: On shared servers Redis now requires a password (generated and saved
+  to /root/.redis.pass) so local accounts cannot read or flush caches
+- **Memcached PHP extension**: Actually installed for each PHP version (previously only the
+  daemon was installed)
+
 ## What's New in Version 4
 
 ### Web Server Enhancements
@@ -108,6 +142,29 @@ If EasycPanel has helped you, please consider supporting ongoing development and
 ---
 
 ## Detailed Changelog
+
+### Version 4.1 (July 2026)
+- Fixed MySQL/MariaDB startup failures caused by socket, pid-file and datadir overrides in
+  the generated /etc/my.cnf; corrected accidental downgrades of table_open_cache and
+  max_allowed_packet; restarts now health-check MySQL and roll back automatically on failure
+- Fixed ImageMagick PHP extension loop that never ran due to a list-format mismatch
+- Installed the memcached PHP extension per PHP version (daemon alone was previously installed)
+- Added Redis password protection on shared servers (saved to /root/.redis.pass)
+- Fixed SSH port change handling for both commented and uncommented Port lines, and CSF
+  TCP_IN replacement at any list position
+- Replaced non-existent CSF SYSCTL_* settings with a real sysctl.d configuration
+- Added BBR congestion control, swappiness and transparent hugepage tuning
+- Added PHP-FPM pool tuning computed from RAM and usage profile
+- Added opcache tuning for all installed PHP versions
+- Added /tmp hardening via cPanel securetmp
+- Added cPanel license validation with tier and account-count warnings
+- Added SHA256 checksum verification for mirror downloads
+- Extracted all shared helpers into lib.sh (single source of truth for every script)
+- Removed retired ConfigServer cmq/cmc plugins (discontinued upstream)
+- Rebuilt terminal output with self-aligning boxes; rewrote the SSH login banner with a
+  root-only interactive guard; reduced pacing delays for faster runs
+- Added continuous linting (syntax check and ShellCheck) on every push
+- Improved input validation for domain and email prompts
 
 ### Version 4.0.1 (October 2025)
 - Updated CSF download mirror to resolve firewall installation issue

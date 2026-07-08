@@ -1,42 +1,47 @@
 #!/bin/bash
-
-# Define color variables
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-NC='\033[0m' # No Color
+# ── Load the EasycPanel shared library ────────────────────────────────
+# Colors, box drawing, logging, backups, detection and tuning helpers
+# live in lib.sh. If this script was downloaded standalone, lib.sh is
+# fetched from the project mirror first.
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+if [ ! -f "$SCRIPT_DIR/lib.sh" ]; then
+    wget -q -O "$SCRIPT_DIR/lib.sh" "https://script.ahtshamjutt.com/easycpanel/lib.sh" || rm -f "$SCRIPT_DIR/lib.sh"
+fi
+if [ ! -f "$SCRIPT_DIR/lib.sh" ]; then
+    echo "FATAL: lib.sh is missing and could not be downloaded from the project mirror."
+    exit 1
+fi
+# shellcheck source=lib.sh
+. "$SCRIPT_DIR/lib.sh"
 
 # Clear the screen for a clean look
 clear
 
 # Display a compact banner
-echo -e "${BLUE}┌────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BLUE}│${GREEN}        cPanel Configuration, Hardening & Security      ${BLUE}│${NC}"
-echo -e "${BLUE}│${YELLOW}              Created by Ahtsham Jutt                   ${BLUE}│${NC}"
-echo -e "${BLUE}│${WHITE}       Website: ahtshamjutt.com | me@ahtshamjutt.com     ${BLUE}│${NC}"
-echo -e "${BLUE}│${CYAN}       Support: ${WHITE}https://ko-fi.com/ahtshamjutt ${CYAN}☕         ${BLUE}│${NC}"
-echo -e "${BLUE}└────────────────────────────────────────────────────────┘${NC}"
+btop "$BLUE"
+bctr "$BLUE" "${GREEN}cPanel Configuration, Hardening & Security"
+bctr "$BLUE" "${YELLOW}Created by Ahtsham Jutt"
+bctr "$BLUE" "${WHITE}Website: ahtshamjutt.com | me@ahtshamjutt.com"
+bctr "$BLUE" "${CYAN}Support: ${WHITE}https://ko-fi.com/ahtshamjutt ${CYAN}☕"
+bbot "$BLUE"
 
 # Pause the script for 1 second
 sleep 1
 
 # Web Server selection menu with tooltips
-echo -e "\n${CYAN}┌─────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${WHITE}              Select your preferred web server:             ${CYAN}│${NC}"
-echo -e "${CYAN}├─────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${CYAN}│ ${GREEN}1.${WHITE} Apache Web Server with PHP-FPM                          ${CYAN}│${NC}"
-echo -e "${CYAN}│   ${YELLOW}↳ Best for standard hosting, highly compatible            ${CYAN}│${NC}"
-echo -e "${CYAN}│                                                             ${CYAN}│${NC}"
-echo -e "${CYAN}│ ${GREEN}2.${WHITE} NGinx as Reverse Proxy (Engintron) with PHP-FPM        ${CYAN}│${NC}"
-echo -e "${CYAN}│   ${YELLOW}↳ Better performance for high-traffic sites               ${CYAN}│${NC}"
-echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
+echo; btop "$CYAN"
+bctr "$CYAN" "${WHITE}Select your preferred web server:"
+bsep "$CYAN"
+brow "$CYAN" " ${GREEN}1.${WHITE} Apache Web Server with PHP-FPM"
+brow "$CYAN" "   ${YELLOW}↳ Best for standard hosting, highly compatible"
+brow "$CYAN" ""
+brow "$CYAN" " ${GREEN}2.${WHITE} NGinx as Reverse Proxy (Engintron) with PHP-FPM"
+brow "$CYAN" "   ${YELLOW}↳ Better performance for high-traffic sites"
+bbot "$CYAN"
 
 # Read the user's choice
 echo -e "\n${YELLOW}Enter your choice (1 or 2):${NC}"
-read -p "▶ " choice
+read -rp "▶ " choice
 
 # Start a loop until a valid choice is made
 while true; do
@@ -63,7 +68,7 @@ while true; do
     *)
       echo -e "\n${RED}✗${NC} Invalid choice. Please select either ${GREEN}1${NC} or ${GREEN}2${NC}."
       echo -e "${YELLOW}Enter your choice (1 or 2):${NC}"
-      read -p "▶ " choice
+      read -rp "▶ " choice
       ;;
   esac
 done

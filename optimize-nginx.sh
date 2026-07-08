@@ -1,18 +1,21 @@
 #!/bin/bash
-# Define color variables
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-NC='\033[0m' # No Color
-
-# Initialize installation flag (used to control screen clearing)
-OPTIMIZATION_STARTED="no"
-
-# Get the directory where the script is located
+# ── Load the EasycPanel shared library ────────────────────────────────
+# Colors, box drawing, logging, backups, detection and tuning helpers
+# live in lib.sh. If this script was downloaded standalone, lib.sh is
+# fetched from the project mirror first.
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+if [ ! -f "$SCRIPT_DIR/lib.sh" ]; then
+    wget -q -O "$SCRIPT_DIR/lib.sh" "https://script.ahtshamjutt.com/easycpanel/lib.sh" || rm -f "$SCRIPT_DIR/lib.sh"
+fi
+if [ ! -f "$SCRIPT_DIR/lib.sh" ]; then
+    echo "FATAL: lib.sh is missing and could not be downloaded from the project mirror."
+    exit 1
+fi
+# shellcheck source=lib.sh
+. "$SCRIPT_DIR/lib.sh"
+
+# Initialize optimization flag (used to control screen clearing)
+OPTIMIZATION_STARTED="no"
 
 # Define the log file location
 LOG_FILE="/root/panelbot-nginx-optimization.log"
@@ -26,168 +29,8 @@ mkdir -p "$BACKUP_DIR/apache"
 mkdir -p "$BACKUP_DIR/mysql"
 mkdir -p "$BACKUP_DIR/php"
 
-# Function to add a log entry and echo it to the terminal
-log() {
-    # Add timestamped entry to log file
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $@" >> "${LOG_FILE}"
-    # Display clean message without timestamp on screen
-    echo -e "${CYAN}$@${NC}"
-}
-
-# Function to create a backup of a file
-backup_file() {
-    local file="$1"
-    local custom_dir="$2"
-    local backup_name="${file##*/}"
-    local backup_path=""
-    
-    if [ -z "$custom_dir" ]; then
-        backup_path="$BACKUP_DIR/$backup_name"
-    else
-        mkdir -p "$BACKUP_DIR/$custom_dir"
-        backup_path="$BACKUP_DIR/$custom_dir/$backup_name"
-    fi
-    
-    if [ -f "$file" ]; then
-        cp "$file" "$backup_path"
-        echo "$file => $backup_path" >> "$BACKUP_DIR/backup_manifest.log"
-        log "Created backup of $file"
-        return 0
-    else
-        log "Warning: File $file does not exist, nothing to backup"
-        return 1
-    fi
-}
-
-# Function to backup a directory
-backup_directory() {
-    local dir="$1"
-    local custom_dir="$2"
-    local dirname=$(basename "$dir")
-    local backup_path=""
-    
-    if [ -z "$custom_dir" ]; then
-        backup_path="$BACKUP_DIR/$dirname"
-    else
-        mkdir -p "$BACKUP_DIR/$custom_dir"
-        backup_path="$BACKUP_DIR/$custom_dir/$dirname"
-    fi
-    
-    if [ -d "$dir" ]; then
-        cp -r "$dir" "$backup_path"
-        echo "$dir => $backup_path" >> "$BACKUP_DIR/backup_manifest.log"
-        log "Created backup of directory $dir"
-        return 0
-    else
-        log "Warning: Directory $dir does not exist, nothing to backup"
-        return 1
-    fi
-}
-
-# Function to display section headers with pause and clear screen
-section_header() {
-    # Only clear screen for sections after initial setup
-    if [[ "$OPTIMIZATION_STARTED" == "yes" ]]; then
-        clear
-    fi
-    
-    echo -e "\n${BLUE}┌─────────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${BLUE}│${WHITE} $1 ${BLUE}│${NC}"
-    echo -e "${BLUE}└─────────────────────────────────────────────────────────────────┘${NC}"
-    log "$1"
-    
-    # Longer pause for readability (2 seconds)
-    sleep 2
-}
-
-# Function to display process steps
-process_step() {
-    echo -e "${YELLOW}➤${NC} $@"
-    sleep 1
-}
-
-# Function to display success message
-success_msg() {
-    echo -e "${GREEN}✓${NC} $@"
-    log "$@"
-}
-
-# Function to display error message
-error_msg() {
-    echo -e "${RED}✗${NC} $@"
-    log "ERROR: $@"
-}
-
-# Function to display warning message
-warning_msg() {
-    echo -e "${YELLOW}⚠${NC} $@"
-    log "WARNING: $@"
-}
-
-# Function to display progress animation
-show_progress() {
-    echo -ne "${YELLOW}Processing${NC}"
-    for i in {1..5}; do
-        echo -ne "${YELLOW}.${NC}"
-        sleep 0.5
-    done
-    echo -e ""
-}
-
-# Function to detect OS and version
-detect_os() {
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        OS_NAME=$ID
-        VERSION_ID=$VERSION_ID
-        # Extract major version number
-        MAJOR_VERSION=$(echo $VERSION_ID | cut -d. -f1)
-        
-        # Set PHP versions based on OS
-        if [[ "$OS_NAME" == "almalinux" || "$OS_NAME" == "cloudlinux" ]]; then
-            if [[ "$MAJOR_VERSION" == "8" ]]; then
-                # For AlmaLinux/CloudLinux 8
-                PHP_VERSIONS=("ea-php74" "ea-php80" "ea-php81" "ea-php82" "ea-php83" "ea-php84")
-                IMAGICK_COMPATIBLE=("ea-php74" "ea-php80" "ea-php81" "ea-php82")
-                DEFAULT_PHP="ea-php82"
-            elif [[ "$MAJOR_VERSION" == "9" ]]; then
-                # For AlmaLinux/CloudLinux 9
-                PHP_VERSIONS=("ea-php80" "ea-php81" "ea-php82" "ea-php83" "ea-php84")
-                IMAGICK_COMPATIBLE=("ea-php80" "ea-php81" "ea-php82")
-                DEFAULT_PHP="ea-php82"
-            else
-                error_msg "Unsupported version: $OS_NAME $VERSION_ID"
-                exit 1
-            fi
-            
-            success_msg "Detected $OS_NAME $VERSION_ID"
-            log "Setting PHP versions: ${PHP_VERSIONS[@]}"
-            log "ImageMagick compatible PHP versions: ${IMAGICK_COMPATIBLE[@]}"
-        else
-            error_msg "Unsupported OS: $OS_NAME"
-            exit 1
-        fi
-    else
-        error_msg "Cannot determine OS. /etc/os-release file not found."
-        exit 1
-    fi
-}
-
-# Function to detect current SSH port
-detect_ssh_port() {
-    # Try to get SSH port from sshd_config
-    CURRENT_SSH_PORT=$(grep -E "^Port\s+[0-9]+" /etc/ssh/sshd_config | awk '{print $2}')
-    
-    # If not found in config, use default port 22
-    if [ -z "$CURRENT_SSH_PORT" ]; then
-        CURRENT_SSH_PORT=22
-        log "SSH port not explicitly set in sshd_config, assuming default port 22"
-    else
-        log "Current SSH port detected: $CURRENT_SSH_PORT"
-    fi
-    
-    return 0
-}
+# Check for Root Privileges
+require_root
 
 # Function to detect if cPanel Nginx or Engintron is installed
 detect_nginx_installation() {
@@ -223,34 +66,28 @@ detect_nginx_installation() {
     return 0
 }
 
-# Check for Root Privileges
-if [[ $EUID -ne 0 ]]; then
-   error_msg "This script must be run as root!"
-   exit 1
-fi
-
 # Clear the screen for a clean look
 clear
 
 # Display a compact banner
-echo -e "${BLUE}┌────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BLUE}│${GREEN}   cPanel Nginx Optimization, Hardening & Security     ${BLUE}│${NC}"
-echo -e "${BLUE}│${YELLOW}              Created by Ahtsham Jutt                   ${BLUE}│${NC}"
-echo -e "${BLUE}│${WHITE}       Website: ahtshamjutt.com | me@ahtshamjutt.com     ${BLUE}│${NC}"
-echo -e "${BLUE}│${CYAN}       Support: ${WHITE}https://ko-fi.com/ahtshamjutt ${CYAN}☕         ${BLUE}│${NC}"
-echo -e "${BLUE}└────────────────────────────────────────────────────────┘${NC}"
+btop "$BLUE"
+brow "$BLUE" "${GREEN}   cPanel Nginx Optimization, Hardening & Security"
+bctr "$BLUE" "${YELLOW}Created by Ahtsham Jutt"
+bctr "$BLUE" "${WHITE}Website: ahtshamjutt.com | me@ahtshamjutt.com"
+bctr "$BLUE" "${CYAN}Support: ${WHITE}https://ko-fi.com/ahtshamjutt ${CYAN}☕"
+bbot "$BLUE"
 
 # Display optimization time notice
-echo -e "\n${YELLOW}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${YELLOW}│${WHITE}                      IMPORTANT NOTICE                         ${YELLOW}│${NC}"
-echo -e "${YELLOW}├─────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${YELLOW}│${WHITE} • This script will optimize your cPanel server with Nginx      ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE} • All modified files will be backed up to:                    ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE}   ${GREEN}$BACKUP_DIR${WHITE}            ${YELLOW}│${NC}"
-echo -e "${YELLOW}│                                                                 ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE} • The optimization process may take 15-30 minutes             ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE} • Some services will be restarted during the process          ${YELLOW}│${NC}"
-echo -e "${YELLOW}└─────────────────────────────────────────────────────────────────┘${NC}"
+echo; btop "$YELLOW"
+bctr "$YELLOW" "${WHITE}IMPORTANT NOTICE"
+bsep "$YELLOW"
+brow "$YELLOW" "${WHITE} • This script will optimize your cPanel server with Nginx"
+brow "$YELLOW" "${WHITE} • All modified files will be backed up to:"
+brow "$YELLOW" "${WHITE}   ${GREEN}$BACKUP_DIR${WHITE}"
+brow "$YELLOW" ""
+brow "$YELLOW" "${WHITE} • The optimization process may take 15-30 minutes"
+brow "$YELLOW" "${WHITE} • Some services will be restarted during the process"
+bbot "$YELLOW"
 sleep 5
 
 # Detect OS and set PHP versions
@@ -260,23 +97,26 @@ detect_os
 # Detect current SSH port
 detect_ssh_port
 
+# Validate the cPanel license and tier
+check_cpanel_license
+
 # Detect existing Nginx installations
 section_header "Detecting Existing Nginx Installations"
 detect_nginx_installation
 
 # Check for cPanel Nginx and prompt for uninstallation if needed
 if [ "$CPANEL_NGINX_INSTALLED" = true ]; then
-    echo -e "\n${RED}┌─────────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${RED}│${WHITE}                           WARNING                              ${RED}│${NC}"
-    echo -e "${RED}├─────────────────────────────────────────────────────────────────┤${NC}"
-    echo -e "${RED}│${YELLOW} cPanel native Nginx detected!                                  ${RED}│${NC}"
-    echo -e "${RED}│${YELLOW} Engintron cannot be installed while cPanel Nginx is active.    ${RED}│${NC}"
-    echo -e "${RED}│${YELLOW} You must uninstall cPanel Nginx before proceeding.             ${RED}│${NC}"
-    echo -e "${RED}└─────────────────────────────────────────────────────────────────┘${NC}"
+    echo; btop "$RED"
+    bctr "$RED" "${WHITE}WARNING"
+    bsep "$RED"
+    brow "$RED" "${YELLOW} cPanel native Nginx detected!"
+    brow "$RED" "${YELLOW} Engintron cannot be installed while cPanel Nginx is active."
+    brow "$RED" "${YELLOW} You must uninstall cPanel Nginx before proceeding."
+    bbot "$RED"
     echo -e "${WHITE}Would you like to uninstall cPanel Nginx now? (This is required to proceed)${NC}"
     echo -e "${GREEN}1.${NC} Yes, uninstall cPanel Nginx"
     echo -e "${RED}2.${NC} No, exit the script"
-    read -p "▶ " uninstall_choice
+    read -rp "▶ " uninstall_choice
     
     if [[ "$uninstall_choice" == "1" ]]; then
         section_header "Uninstalling cPanel Nginx"
@@ -306,21 +146,25 @@ fi
 # Collect information
 section_header "Required Information"
 
-echo -e "${CYAN}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${WHITE} Please provide your email address for server alerts:             ${CYAN}│${NC}"
-echo -e "${CYAN}└─────────────────────────────────────────────────────────────────┘${NC}"
-read -p "▶ " email
+btop "$CYAN"
+brow "$CYAN" "${WHITE} Please provide your email address for server alerts:"
+bbot "$CYAN"
+while true; do
+    read -rp "▶ " email
+    [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] && break
+    echo -e "${RED}✗${NC} Invalid email address, please try again."
+done
 log "Email set to: $email"
 
-echo -e "\n${CYAN}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${WHITE} Server Usage Type:                                              ${CYAN}│${NC}"
-echo -e "${CYAN}├─────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${CYAN}│${WHITE} This affects how Apache, Nginx and MySQL resources are allocated ${CYAN}│${NC}"
-echo -e "${CYAN}└─────────────────────────────────────────────────────────────────┘${NC}"
+echo; btop "$CYAN"
+brow "$CYAN" "${WHITE} Server Usage Type:"
+bsep "$CYAN"
+brow "$CYAN" "${WHITE} This affects how Apache, Nginx and MySQL resources are allocated"
+bbot "$CYAN"
 echo -e "${WHITE}How will this server be used?${NC}"
 echo -e "${GREEN}1.${NC} Personal Server ${WHITE}(for personal websites, optimized dynamically)${NC}"
 echo -e "${GREEN}2.${NC} Shared Hosting Server ${WHITE}(for hosting multiple client accounts)${NC}"
-read -p "▶ " server_usage_choice
+read -rp "▶ " server_usage_choice
 
 if [[ "$server_usage_choice" == "2" ]]; then
     SERVER_TYPE="shared"
@@ -332,24 +176,24 @@ fi
 log "Server type set to: $SERVER_TYPE"
 
 # SSH port configuration
-echo -e "\n${CYAN}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${WHITE} SSH Port Configuration:                                          ${CYAN}│${NC}"
-echo -e "${CYAN}├─────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${CYAN}│${YELLOW} Current SSH port: $CURRENT_SSH_PORT                              ${CYAN}│${NC}"
-echo -e "${CYAN}└─────────────────────────────────────────────────────────────────┘${NC}"
+echo; btop "$CYAN"
+brow "$CYAN" "${WHITE} SSH Port Configuration:"
+bsep "$CYAN"
+brow "$CYAN" "${YELLOW} Current SSH port: $CURRENT_SSH_PORT"
+bbot "$CYAN"
 echo -e "${WHITE}Would you like to:${NC}"
 echo -e "${GREEN}1.${NC} Keep current SSH port: $CURRENT_SSH_PORT"
 echo -e "${GREEN}2.${NC} Change SSH port ${YELLOW}(requires updating firewall rules)${NC}"
-read -p "▶ " ssh_change_choice
+read -rp "▶ " ssh_change_choice
 
 if [[ "$ssh_change_choice" == "2" ]]; then
-    echo -e "\n${CYAN}┌─────────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN}│${WHITE} Choose new SSH port:                                          ${CYAN}│${NC}"
-    echo -e "${CYAN}└─────────────────────────────────────────────────────────────────┘${NC}"
+    echo; btop "$CYAN"
+    brow "$CYAN" "${WHITE} Choose new SSH port:"
+    bbot "$CYAN"
     echo -e "${YELLOW}1.${NC} Use default SSH port 22 ${YELLOW}(Not Recommended)${NC}"
     echo -e "${GREEN}2.${NC} Use port 2200 ${GREEN}(Recommended)${NC}"
     echo -e "${GREEN}3.${NC} Use a randomly generated secure port ${GREEN}(Recommended)${NC}"
-    read -p "▶ " ssh_port_choice
+    read -rp "▶ " ssh_port_choice
 
     # Generate random SSH port between 1500 and 50000
     RANDOM_SSH_PORT=$(( $RANDOM % 48500 + 1500 ))
@@ -392,14 +236,14 @@ success_msg "Current hostname: $HOSTNAME"
 
 # Prompt for Engintron installation or optimization
 if [ "$ENGINTRON_INSTALLED" = true ]; then
-    echo -e "\n${CYAN}┌─────────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN}│${WHITE} Engintron is already installed on this server                   ${CYAN}│${NC}"
-    echo -e "${CYAN}├─────────────────────────────────────────────────────────────────┤${NC}"
-    echo -e "${CYAN}│${WHITE} Would you like to:                                              ${CYAN}│${NC}"
-    echo -e "${CYAN}└─────────────────────────────────────────────────────────────────┘${NC}"
+    echo; btop "$CYAN"
+    brow "$CYAN" "${WHITE} Engintron is already installed on this server"
+    bsep "$CYAN"
+    brow "$CYAN" "${WHITE} Would you like to:"
+    bbot "$CYAN"
     echo -e "${GREEN}1.${NC} Optimize existing Engintron installation"
     echo -e "${YELLOW}2.${NC} Reinstall Engintron with optimized configuration"
-    read -p "▶ " engintron_choice
+    read -rp "▶ " engintron_choice
     
     if [[ "$engintron_choice" == "2" ]]; then
         REINSTALL_ENGINTRON=true
@@ -414,16 +258,16 @@ else
 fi
 
 # Display information summary and proceed
-echo -e "\n${CYAN}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${WHITE} Optimization will proceed with the following settings:         ${CYAN}│${NC}"
-echo -e "${CYAN}├─────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${CYAN}│${WHITE} Email: ${GREEN}$email                                      ${CYAN}│${NC}"
-echo -e "${CYAN}│${WHITE} Server IP: ${GREEN}$SERVER_IP                                        ${CYAN}│${NC}"
-echo -e "${CYAN}│${WHITE} Server Type: ${GREEN}$([ "$SERVER_TYPE" == "personal" ] && echo "Personal" || echo "Shared Hosting")     ${CYAN}│${NC}"
-echo -e "${CYAN}│${WHITE} SSH Port: ${GREEN}$SSH_PORT${NC} $([ "$CHANGE_SSH_PORT" == "true" ] && echo "${YELLOW}(Will be changed)" || echo "${GREEN}(No change)")${CYAN}       │${NC}"
-echo -e "${CYAN}│${WHITE} Engintron: ${GREEN}$([ "$ENGINTRON_INSTALLED" == "true" ] && [ "$REINSTALL_ENGINTRON" == "true" ] && echo "Will reinstall" || [ "$ENGINTRON_INSTALLED" == "true" ] && echo "Will optimize existing" || echo "Will install new")${CYAN}    │${NC}"
-echo -e "${CYAN}│${WHITE} Backup Directory: ${GREEN}$BACKUP_DIR               ${CYAN}│${NC}"
-echo -e "${CYAN}└─────────────────────────────────────────────────────────────────┘${NC}"
+echo; btop "$CYAN"
+brow "$CYAN" "${WHITE} Optimization will proceed with the following settings:"
+bsep "$CYAN"
+brow "$CYAN" "${WHITE} Email: ${GREEN}$email"
+brow "$CYAN" "${WHITE} Server IP: ${GREEN}$SERVER_IP"
+brow "$CYAN" "${WHITE} Server Type: ${GREEN}$([ "$SERVER_TYPE" == "personal" ] && echo "Personal" || echo "Shared Hosting")"
+brow "$CYAN" "${WHITE} SSH Port: ${GREEN}$SSH_PORT${NC} $([ "$CHANGE_SSH_PORT" == "true" ] && echo "${YELLOW}(Will be changed)" || echo "${GREEN}(No change)")"
+brow "$CYAN" "${WHITE} Engintron: ${GREEN}$([ "$ENGINTRON_INSTALLED" == "true" ] && [ "$REINSTALL_ENGINTRON" == "true" ] && echo "Will reinstall" || [ "$ENGINTRON_INSTALLED" == "true" ] && echo "Will optimize existing" || echo "Will install new")"
+brow "$CYAN" "${WHITE} Backup Directory: ${GREEN}$BACKUP_DIR"
+bbot "$CYAN"
 
 log "Optimization will proceed with: Email=$email, IP=$SERVER_IP, Type=$SERVER_TYPE, SSH Port=$SSH_PORT"
 sleep 4
@@ -513,7 +357,6 @@ log "Total RAM detected: ${TOTAL_MEM_MB} MB"
 APACHE_RATIO=0.25  # Less than Apache-only setup (was 0.35)
 MYSQL_RATIO=0.30
 NGINX_RATIO=0.10   # Add memory allocation for Nginx
-OS_RATIO=0.35
 
 # 3. Calculate memory allocations
 APACHE_MB=$(awk -v mem="$TOTAL_MEM_MB" -v r="$APACHE_RATIO" 'BEGIN{printf "%d", mem*r}')
@@ -619,7 +462,7 @@ if [[ "$SERVER_TYPE" == "personal" ]]; then
     MYSQL_GB_INT=$(awk -v mb="$MYSQL_MB" 'BEGIN { printf "%.0f", mb/1024 }')
     
     # Ensure minimum buffer size
-    if (( $(echo "$MYSQL_GB < 1" | bc -l) )); then
+    if [ "$(awk -v g="$MYSQL_GB" 'BEGIN{print (g<1)?1:0}')" = "1" ]; then
         BPOOL="512M"
     else
         BPOOL="${MYSQL_GB_INT}G"
@@ -643,7 +486,7 @@ fi
 section_header "Configuring PHP Settings"
 
 # Get installed PHP versions
-INSTALLED_PHP_VERSIONS=$(whmapi1 php_get_installed_versions | grep ea-php | awk '{print $2}')
+INSTALLED_PHP_VERSIONS=$(whmapi1 php_get_installed_versions | grep ea-php | awk '{print $2}' | tr '\n' ' ')
 
 # Define PHP directives to set
 PHP_DIRECTIVES=(
@@ -712,6 +555,16 @@ perl -pi -e "s/OPTIONS=\"\"/OPTIONS=\"-l 127.0.0.1 -U 0\"/g" /etc/sysconfig/memc
 systemctl restart memcached
 success_msg "Memcached configured for security (localhost only, UDP disabled)"
 
+# Without the PHP extension the daemon is unusable from web apps
+process_step "Installing Memcached PHP extensions"
+dnf -y install libmemcached-awesome-devel cyrus-sasl-devel zlib-devel 2>/dev/null || dnf -y install libmemcached-devel cyrus-sasl-devel zlib-devel
+for php_version in $INSTALLED_PHP_VERSIONS; do
+    printf '\n\n\n\n\n\n\n\n\n\n' | /opt/cpanel/${php_version}/root/usr/bin/pecl install memcached \
+        && log "memcached extension installed for $php_version" \
+        || warning_msg "memcached extension failed for $php_version (continuing)"
+done
+success_msg "Memcached PHP extensions processed"
+
 # Install ImageMagick with PHP extensions if not already installed
 section_header "Checking and Installing ImageMagick"
 if ! rpm -q ImageMagick ImageMagick-devel > /dev/null; then
@@ -726,7 +579,7 @@ fi
 # Check and install ImageMagick PHP extensions
 process_step "Configuring ImageMagick PHP extensions"
 for php_version in "${IMAGICK_COMPATIBLE[@]}"; do
-    if [[ " ${INSTALLED_PHP_VERSIONS} " =~ " ${php_version} " ]]; then
+    if [[ " ${INSTALLED_PHP_VERSIONS} " == *" ${php_version} "* ]]; then
         # Check if imagick is already installed for this PHP version
         if ! /opt/cpanel/${php_version}/root/usr/bin/php -m | grep -q imagick; then
             process_step "Installing ImageMagick extension for $php_version"
@@ -770,41 +623,37 @@ if [ -f /etc/my.cnf ]; then
 fi
 
 # Create optimized my.cnf file (compatible with both MySQL and MariaDB)
+# Scale connections to server role
+MYSQL_MAX_CONN=$([ "$SERVER_TYPE" == "shared" ] && echo 500 || echo 200)
+# Keep a rollback copy of the previous config
+[ -f /etc/my.cnf ] && cp -f /etc/my.cnf /etc/my.cnf.pre-easycpanel
 cat > /etc/my.cnf << EOF
 [mysqld]
-# Basic Settings
-pid-file                = /var/lib/mysql/mysqld.pid
-socket                  = /var/lib/mysql/mysqld.sock
-datadir                 = /var/lib/mysql
-
-# MyISAM Settings
-key_buffer_size         = 16M
-max_allowed_packet      = 32M
-thread_stack            = 256K
-thread_cache_size       = 4
+# NOTE: socket/pid-file/datadir intentionally NOT overridden —
+# cPanel and the OS defaults are correct (mysql.sock); overriding them
+# breaks client connections and service detection.
 
 # InnoDB Settings
 innodb_buffer_pool_size = ${BPOOL}
 innodb_file_per_table   = 1
 innodb_flush_log_at_trx_commit = 2
-
-# MySQL 8.0 compatible settings
-# innodb_redo_log_capacity = 256M (MySQL 8.0.30+)
-# For older versions or MariaDB:
-innodb_log_file_size    = 128M
-innodb_log_buffer_size  = 8M
+innodb_flush_method     = O_DIRECT
+innodb_log_file_size    = 256M
+innodb_log_buffer_size  = 16M
 
 # Connection Settings
-max_connections         = 151
-wait_timeout            = 180
-interactive_timeout     = 180
+max_connections         = ${MYSQL_MAX_CONN}
+max_allowed_packet      = 256M
+wait_timeout            = 300
+interactive_timeout     = 300
+thread_cache_size       = 16
+thread_stack            = 256K
 
 # Table Settings
-table_open_cache        = 400
-open_files_limit        = 1000
+table_open_cache        = 4000
 
-# Logging
-log_error               = /var/lib/mysql/error.log
+# MyISAM Settings
+key_buffer_size         = 32M
 EOF
 
 # Creating mysqld directory under /var/run/
@@ -813,19 +662,37 @@ mkdir -p /var/run/mysqld
 chown mysql:mysql /var/run/mysqld
 chmod 755 /var/run/mysqld
 
-# Restart MySQL to apply changes
-systemctl restart mysqld
-success_msg "MySQL optimized with innodb_buffer_pool_size = ${BPOOL}"
+# Restart MySQL via cPanel (works for MySQL and MariaDB) and verify it came back
+/scripts/restartsrv_mysql
+sleep 5
+if mysqladmin status >/dev/null 2>&1; then
+    success_msg "MySQL optimized with innodb_buffer_pool_size = ${BPOOL}"
+else
+    error_msg "MySQL failed to restart with the new config — rolling back"
+    [ -f /etc/my.cnf.pre-easycpanel ] && cp -f /etc/my.cnf.pre-easycpanel /etc/my.cnf
+    /scripts/restartsrv_mysql
+    warning_msg "Previous MySQL config restored; review /etc/my.cnf manually"
+fi
 
 # Check if CSF Firewall is installed, install if not
 section_header "Checking and Configuring CSF Firewall"
 if [ ! -d "/etc/csf" ]; then
     process_step "CSF Firewall not found, installing"
-    cd /usr/src
+    cd /usr/src || exit 1
     rm -fv csf.tgz
-    wget https://script.ahtshamjutt.com/easycpanel/csf.tgz
-    tar -xzf csf.tgz
-    cd csf
+    # Download from the project mirror with checksum verification — if the
+    # mirror is unreachable/broken or the file is tampered, ABORT rather
+    # than continue without a firewall
+    if ! download_verified csf.tgz "$EASYCPANEL_CSF_SHA256"; then
+        error_msg "Firewall NOT installed — fix the mirror and re-run this section."
+        exit 1
+    fi
+    if ! tar -xzf csf.tgz 2>/dev/null; then
+        error_msg "CSF download from script.ahtshamjutt.com failed or is corrupt."
+        error_msg "Firewall NOT installed — fix the mirror and re-run this section."
+        exit 1
+    fi
+    cd csf || exit 1
     sh install.sh
     success_msg "CSF Firewall installed"
 else
@@ -915,10 +782,9 @@ sed -i 's/CONNLIMIT = ".*"/CONNLIMIT = "22;10,80;400,443;400"/g' /etc/csf/csf.co
 # Enable packet filtering for additional protection
 sed -i 's/PACKET_FILTER = ".*"/PACKET_FILTER = "1"/g' /etc/csf/csf.conf
 
-# Optimize kernel parameters for high traffic and better security
-sed -i 's/SYSCTL_SYNCL_QUEUE = ".*"/SYSCTL_SYNCL_QUEUE = "8192"/g' /etc/csf/csf.conf
-sed -i 's/SYSCTL_TCP_K_SYN_RETRIES = ".*"/SYSCTL_TCP_K_SYN_RETRIES = "2"/g' /etc/csf/csf.conf
-sed -i 's/SYSCTL_TCP_FINWAIT2_TIMEOUT = ".*"/SYSCTL_TCP_FINWAIT2_TIMEOUT = "30"/g' /etc/csf/csf.conf
+# Kernel network & memory tuning: connection queues, swappiness, BBR
+# congestion control and transparent hugepages (see lib.sh)
+apply_kernel_tuning
 
 # Add comment to CSF configuration file about adjusting these values
 echo "# Note: The DDoS protection values are set to balanced defaults." >> /etc/csf/csf.conf
@@ -964,7 +830,7 @@ fi
 section_header "Checking and Installing ImunifyAV"
 if ! rpm -q imunify-antivirus > /dev/null; then
     process_step "Downloading and installing ImunifyAV"
-    cd /root/
+    cd /root/ || exit 1
     wget https://repo.imunify360.cloudlinux.com/defence360/imav-deploy.sh
     bash imav-deploy.sh
     sed -i -e "s|cpu: .*|cpu: 1|" -e "s|io: .*|io: 1|" /etc/sysconfig/imunify360/imunify360.config
@@ -1055,8 +921,7 @@ success_msg "Tweak settings configured for server security"
 section_header "Checking and Installing Redis"
 if ! rpm -q redis > /dev/null; then
     process_step "Installing Redis"
-    dnf -y install elinks
-    dnf -y install redis
+        dnf -y install redis
     systemctl enable redis
     systemctl start redis
     success_msg "Redis service installed and started"
@@ -1066,6 +931,18 @@ else
     systemctl restart redis
 fi
 
+# Harden Redis on shared servers — without a password any local account can
+# read or flush the cache of every other account
+if [[ "$SERVER_TYPE" == "shared" ]]; then
+    REDIS_CONF=$([ -f /etc/redis/redis.conf ] && echo /etc/redis/redis.conf || echo /etc/redis.conf)
+    if [ -f "$REDIS_CONF" ] && ! grep -q '^requirepass' "$REDIS_CONF"; then
+        REDIS_PASS=$(openssl rand -hex 16)
+        echo "requirepass $REDIS_PASS" >> "$REDIS_CONF"
+        echo "$REDIS_PASS" > /root/.redis.pass && chmod 600 /root/.redis.pass
+        systemctl restart redis
+        success_msg "Redis password enabled (stored in /root/.redis.pass)"
+    fi
+fi
 process_step "Installing Redis PHP extensions"
 for php_version in ${INSTALLED_PHP_VERSIONS}; do
     # Check if Redis extension is already installed
@@ -1079,36 +956,6 @@ for php_version in ${INSTALLED_PHP_VERSIONS}; do
 done
 
 success_msg "Redis PHP extensions installed or verified"
-# Check and Install ConfigServer Mail Queue
-section_header "Checking and Installing ConfigServer Plugins"
-if [ ! -f "/usr/local/cpanel/whostmgr/docroot/cgi/configserver/cmq.cgi" ]; then
-    process_step "Installing ConfigServer Mail Queue"
-    cd /usr/src
-    rm -fv /usr/src/cmq.tgz
-    wget http://download.configserver.com/cmq.tgz
-    tar -xzf cmq.tgz
-    cd cmq
-    sh install.sh
-    rm -Rfv /usr/src/cmq*
-    success_msg "ConfigServer Mail Queue installed"
-else
-    success_msg "ConfigServer Mail Queue already installed"
-fi
-
-# Check and Install ConfigServer ModSecurity Control
-if [ ! -f "/usr/local/cpanel/whostmgr/docroot/cgi/configserver/cmc.cgi" ]; then
-    process_step "Installing ConfigServer ModSecurity Control"
-    cd /usr/src
-    rm -fv /usr/src/cmc.tgz
-    wget http://download.configserver.com/cmc.tgz
-    tar -xzf cmc.tgz
-    cd cmc
-    sh install.sh
-    rm -Rfv /usr/src/cmc*
-    success_msg "ConfigServer ModSecurity Control installed"
-else
-    success_msg "ConfigServer ModSecurity Control already installed"
-fi
 
 # Install Engintron (Nginx for cPanel)
 section_header "Installing and Configuring Engintron (Nginx)"
@@ -1513,6 +1360,12 @@ else
     fi
 fi
 
+# PHP performance tuning and system hardening
+section_header "PHP Performance Tuning & System Hardening"
+tune_php_opcache
+tune_php_fpm_pools
+secure_tmp
+
 # Setup login info script
 process_step "Setting up login information script"
 backup_file "/etc/ssh/sshd_config" "ssh"
@@ -1623,69 +1476,69 @@ success_msg "Revert script created at ${BACKUP_DIR}/revert.sh"
 
 # Final banner with server information
 clear
-echo -e "${BLUE}┌───────────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BLUE}│${GREEN}                      NGINX OPTIMIZATION COMPLETE                   ${BLUE}│${NC}"
-echo -e "${BLUE}├───────────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${WHITE}Your cPanel server has been successfully optimized with Nginx.     ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}Server Information:                                                 ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• IP Address:${NC} $SERVER_IP                                          ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• SSH Port:${NC} $SSH_PORT                                                ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• Hostname:${NC} $HOSTNAME                                           ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• Server Type:${NC} $([ "$SERVER_TYPE" == "personal" ] && echo "Personal" || echo "Shared Hosting")                                       ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}Web Server Configuration:                                           ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• Nginx + Apache Setup:${NC} Engintron                                ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• Apache MaxRequestWorkers:${NC} $FINAL_MRW                               ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• MySQL Buffer Pool:${NC} $BPOOL                                       ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• Nginx Worker Connections:${NC} $NGINX_WORKER_CONNECTIONS                        ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
+btop "$BLUE"
+bctr "$BLUE" "${GREEN}NGINX OPTIMIZATION COMPLETE"
+bsep "$BLUE"
+brow "$BLUE" ""
+brow "$BLUE" " ${WHITE}Your cPanel server has been successfully optimized with Nginx."
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}Server Information:"
+brow "$BLUE" " ${GREEN}• IP Address:${NC} $SERVER_IP"
+brow "$BLUE" " ${GREEN}• SSH Port:${NC} $SSH_PORT"
+brow "$BLUE" " ${GREEN}• Hostname:${NC} $HOSTNAME"
+brow "$BLUE" " ${GREEN}• Server Type:${NC} $([ "$SERVER_TYPE" == "personal" ] && echo "Personal" || echo "Shared Hosting")"
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}Web Server Configuration:"
+brow "$BLUE" " ${GREEN}• Nginx + Apache Setup:${NC} Engintron"
+brow "$BLUE" " ${GREEN}• Apache MaxRequestWorkers:${NC} $FINAL_MRW"
+brow "$BLUE" " ${GREEN}• MySQL Buffer Pool:${NC} $BPOOL"
+brow "$BLUE" " ${GREEN}• Nginx Worker Connections:${NC} $NGINX_WORKER_CONNECTIONS"
+brow "$BLUE" ""
 
 # Add resource allocation disclaimer for Personal servers
 if [[ "$SERVER_TYPE" == "personal" ]]; then
-    echo -e "${BLUE}│ ${YELLOW}Resource Allocation:                                                ${BLUE}│${NC}"
-    echo -e "${BLUE}│ ${WHITE}• Resources are optimized with a Nginx+Apache stack:                 ${BLUE}│${NC}"
-    echo -e "${BLUE}│ ${WHITE}  - 10% Nginx, 25% Apache, 30% MySQL, and 35% for the OS            ${BLUE}│${NC}"
-    echo -e "${BLUE}│ ${WHITE}• These settings are automatically tuned to your server's resources  ${BLUE}│${NC}"
-    echo -e "${BLUE}│ ${WHITE}  and can be further optimized based on traffic patterns.            ${BLUE}│${NC}"
-    echo -e "${BLUE}│                                                                       │${NC}"
+    brow "$BLUE" " ${YELLOW}Resource Allocation:"
+    brow "$BLUE" " ${WHITE}• Resources are optimized with a Nginx+Apache stack:"
+    brow "$BLUE" " ${WHITE}  - 10% Nginx, 25% Apache, 30% MySQL, and 35% for the OS"
+    brow "$BLUE" " ${WHITE}• These settings are automatically tuned to your server's resources"
+    brow "$BLUE" " ${WHITE}  and can be further optimized based on traffic patterns."
+    brow "$BLUE" ""
 fi
 
-echo -e "${BLUE}│ ${YELLOW}Nginx Advantages:                                                   ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• Faster performance with static content caching                     ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• Better handling of concurrent connections                          ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• Reduced server load with efficient request handling                ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• Enhanced security with additional layer before Apache              ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}Access Information:                                                 ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• WHM URL:${NC} https://$SERVER_IP:2087                                ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• cPanel URL:${NC} https://$SERVER_IP:2083                             ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}Security Features:                                                  ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• CSF Firewall:${NC} Enabled with DDoS protection                     ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• ModSecurity:${NC} Enabled with OWASP ruleset                        ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• ImunifyAV:${NC} Installed and configured                            ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• Nginx Security:${NC} Additional protection layer configured          ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}Reversion Option:                                                   ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• If needed, you can revert to the original configuration with:      ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}  bash ${BACKUP_DIR}/revert.sh                ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}Backup Information:                                                 ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• All original configurations backed up to:${NC}                       ${BLUE}│${NC}"
-echo -e "${BLUE}│   ${WHITE}$BACKUP_DIR${NC}                    ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}IMPORTANT:${NC}                                                      ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• MySQL Root Password has been set and saved in /root/.my.cnf        ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• All details are logged in ${GREEN}$LOG_FILE           ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}├───────────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${CYAN}If you found this script helpful, please consider supporting:         ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}☕ https://ko-fi.com/ahtshamjutt                                     ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}└───────────────────────────────────────────────────────────────────────┘${NC}"
+brow "$BLUE" " ${YELLOW}Nginx Advantages:"
+brow "$BLUE" " ${WHITE}• Faster performance with static content caching"
+brow "$BLUE" " ${WHITE}• Better handling of concurrent connections"
+brow "$BLUE" " ${WHITE}• Reduced server load with efficient request handling"
+brow "$BLUE" " ${WHITE}• Enhanced security with additional layer before Apache"
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}Access Information:"
+brow "$BLUE" " ${GREEN}• WHM URL:${NC} https://$SERVER_IP:2087"
+brow "$BLUE" " ${GREEN}• cPanel URL:${NC} https://$SERVER_IP:2083"
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}Security Features:"
+brow "$BLUE" " ${GREEN}• CSF Firewall:${NC} Enabled with DDoS protection"
+brow "$BLUE" " ${GREEN}• ModSecurity:${NC} Enabled with OWASP ruleset"
+brow "$BLUE" " ${GREEN}• ImunifyAV:${NC} Installed and configured"
+brow "$BLUE" " ${GREEN}• Nginx Security:${NC} Additional protection layer configured"
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}Reversion Option:"
+brow "$BLUE" " ${WHITE}• If needed, you can revert to the original configuration with:"
+brow "$BLUE" " ${GREEN}  bash ${BACKUP_DIR}/revert.sh"
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}Backup Information:"
+brow "$BLUE" " ${GREEN}• All original configurations backed up to:${NC}"
+brow "$BLUE" "   ${WHITE}$BACKUP_DIR${NC}"
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}IMPORTANT:${NC}"
+brow "$BLUE" " ${WHITE}• MySQL Root Password has been set and saved in /root/.my.cnf"
+brow "$BLUE" " ${WHITE}• All details are logged in ${GREEN}$LOG_FILE"
+brow "$BLUE" ""
+bsep "$BLUE"
+brow "$BLUE" ""
+brow "$BLUE" " ${CYAN}If you found this script helpful, please consider supporting:"
+brow "$BLUE" " ${WHITE}☕ https://ko-fi.com/ahtshamjutt"
+brow "$BLUE" ""
+bbot "$BLUE"
 echo ""
 echo -e "${YELLOW}A system reboot is recommended to complete the optimization.${NC}"
 echo -e "${GREEN}Please run 'reboot' when convenient.${NC}"
@@ -1693,12 +1546,12 @@ echo ""
 
 # Warning about SSH port if it was changed
 if [ "$CHANGE_SSH_PORT" = true ]; then
-    echo -e "${RED}┌─────────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${RED}│                       IMPORTANT NOTICE                           │${NC}"
-    echo -e "${RED}├─────────────────────────────────────────────────────────────────┤${NC}"
-    echo -e "${RED}│${YELLOW} Your SSH port has been changed to: ${WHITE}$SSH_PORT                      ${RED}│${NC}"
-    echo -e "${RED}│${YELLOW} You will need to use this port for future SSH connections       ${RED}│${NC}"
-    echo -e "${RED}└─────────────────────────────────────────────────────────────────┘${NC}"
+    btop "$RED"
+    bctr "$RED" "IMPORTANT NOTICE"
+    bsep "$RED"
+    brow "$RED" "${YELLOW} Your SSH port has been changed to: ${WHITE}$SSH_PORT"
+    brow "$RED" "${YELLOW} You will need to use this port for future SSH connections"
+    bbot "$RED"
     echo ""
 fi
 

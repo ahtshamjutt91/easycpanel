@@ -3,31 +3,29 @@
 # Universal reversal script for undoing changes made by either optimize-apache.sh or optimize-nginx.sh
 # Created by Ahtsham Jutt
 
-# Define color variables
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-NC='\033[0m' # No Color
+# ── Load the EasycPanel shared library ────────────────────────────────
+# Colors, box drawing, logging, backups, detection and tuning helpers
+# live in lib.sh. If this script was downloaded standalone, lib.sh is
+# fetched from the project mirror first.
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+if [ ! -f "$SCRIPT_DIR/lib.sh" ]; then
+    wget -q -O "$SCRIPT_DIR/lib.sh" "https://script.ahtshamjutt.com/easycpanel/lib.sh" || rm -f "$SCRIPT_DIR/lib.sh"
+fi
+if [ ! -f "$SCRIPT_DIR/lib.sh" ]; then
+    echo "FATAL: lib.sh is missing and could not be downloaded from the project mirror."
+    exit 1
+fi
+# shellcheck source=lib.sh
+. "$SCRIPT_DIR/lib.sh"
 
 # Define the log file location
 LOG_FILE="/root/panelbot-reversion.log"
 
-# Function to add a log entry and echo it to the terminal
-log() {
-    # Add timestamped entry to log file
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $@" >> "${LOG_FILE}"
-    # Display clean message without timestamp on screen
-    echo -e "${CYAN}$@${NC}"
-}
-
 # Function to display section headers with pause
 section_header() {
-    echo -e "\n${BLUE}┌─────────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${BLUE}│${WHITE} $1 ${BLUE}│${NC}"
-    echo -e "${BLUE}└─────────────────────────────────────────────────────────────────┘${NC}"
+    echo; btop "$BLUE"
+    brow "$BLUE" "${WHITE} $1"
+    bbot "$BLUE"
     log "$1"
     
     # Pause for readability (2 seconds)
@@ -36,26 +34,8 @@ section_header() {
 
 # Function to display process steps
 process_step() {
-    echo -e "${YELLOW}➤${NC} $@"
+    echo -e "${YELLOW}➤${NC} $*"
     sleep 1
-}
-
-# Function to display success message
-success_msg() {
-    echo -e "${GREEN}✓${NC} $@"
-    log "$@"
-}
-
-# Function to display error message
-error_msg() {
-    echo -e "${RED}✗${NC} $@"
-    log "ERROR: $@"
-}
-
-# Function to display warning message
-warning_msg() {
-    echo -e "${YELLOW}⚠${NC} $@"
-    log "WARNING: $@"
 }
 
 # Function to check if a file exists
@@ -116,23 +96,23 @@ fi
 clear
 
 # Display a compact banner
-echo -e "${BLUE}┌────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BLUE}│${GREEN}          cPanel Optimization Reversal Script            ${BLUE}│${NC}"
-echo -e "${BLUE}│${YELLOW}              Created by Ahtsham Jutt                   ${BLUE}│${NC}"
-echo -e "${BLUE}│${WHITE}       Website: ahtshamjutt.com | me@ahtshamjutt.com     ${BLUE}│${NC}"
-echo -e "${BLUE}│${CYAN}       Support: ${WHITE}https://ko-fi.com/ahtshamjutt ${CYAN}☕         ${BLUE}│${NC}"
-echo -e "${BLUE}└────────────────────────────────────────────────────────┘${NC}"
+btop "$BLUE"
+bctr "$BLUE" "${GREEN}cPanel Optimization Reversal Script"
+bctr "$BLUE" "${YELLOW}Created by Ahtsham Jutt"
+bctr "$BLUE" "${WHITE}Website: ahtshamjutt.com | me@ahtshamjutt.com"
+bctr "$BLUE" "${CYAN}Support: ${WHITE}https://ko-fi.com/ahtshamjutt ${CYAN}☕"
+bbot "$BLUE"
 
 # Display reversal notice
-echo -e "\n${YELLOW}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${YELLOW}│${WHITE}                      IMPORTANT NOTICE                         ${YELLOW}│${NC}"
-echo -e "${YELLOW}├─────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${YELLOW}│${WHITE} • This script will revert your server to its state before      ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE}   optimization by restore from backup.                         ${YELLOW}│${NC}"
-echo -e "${YELLOW}│                                                                 ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE} • A reboot is recommended after the reversion process.         ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE} • All changes will be logged to $LOG_FILE      ${YELLOW}│${NC}"
-echo -e "${YELLOW}└─────────────────────────────────────────────────────────────────┘${NC}"
+echo; btop "$YELLOW"
+bctr "$YELLOW" "${WHITE}IMPORTANT NOTICE"
+bsep "$YELLOW"
+brow "$YELLOW" "${WHITE} • This script will revert your server to its state before"
+brow "$YELLOW" "${WHITE}   optimization by restore from backup."
+brow "$YELLOW" ""
+brow "$YELLOW" "${WHITE} • A reboot is recommended after the reversion process."
+brow "$YELLOW" "${WHITE} • All changes will be logged to $LOG_FILE"
+bbot "$YELLOW"
 sleep 3
 
 # Scan for backup directories
@@ -208,7 +188,7 @@ fi
 
 # Prompt user to select a backup
 echo -e "${WHITE}Which backup would you like to restore from? (Enter the number)${NC}"
-read -p "▶ " BACKUP_CHOICE
+read -rp "▶ " BACKUP_CHOICE
 
 # Validate and process the selection
 if ! [[ "$BACKUP_CHOICE" =~ ^[0-9]+$ ]]; then
@@ -235,20 +215,20 @@ else
 fi
 
 # Verification step
-echo -e "\n${YELLOW}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${YELLOW}│${WHITE}                    CONFIRMATION REQUIRED                      ${YELLOW}│${NC}"
-echo -e "${YELLOW}├─────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${YELLOW}│${WHITE} You've selected to restore from:                              ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${GREEN} $BACKUP_DIR ${YELLOW}│${NC}"
-echo -e "${YELLOW}│                                                                 ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE} This will revert all optimization changes and restore your    ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE} server to its previous state. This cannot be undone.          ${YELLOW}│${NC}"
-echo -e "${YELLOW}│                                                                 ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${RED} All current server configurations will be overwritten!        ${YELLOW}│${NC}"
-echo -e "${YELLOW}└─────────────────────────────────────────────────────────────────┘${NC}"
+echo; btop "$YELLOW"
+bctr "$YELLOW" "${WHITE}CONFIRMATION REQUIRED"
+bsep "$YELLOW"
+brow "$YELLOW" "${WHITE} You've selected to restore from:"
+brow "$YELLOW" "${GREEN} $BACKUP_DIR"
+brow "$YELLOW" ""
+brow "$YELLOW" "${WHITE} This will revert all optimization changes and restore your"
+brow "$YELLOW" "${WHITE} server to its previous state. This cannot be undone."
+brow "$YELLOW" ""
+brow "$YELLOW" "${RED} All current server configurations will be overwritten!"
+bbot "$YELLOW"
 echo -e ""
 echo -e "${WHITE}Are you sure you want to proceed with this restoration? (yes/no)${NC}"
-read -p "▶ " CONFIRMATION
+read -rp "▶ " CONFIRMATION
 
 if [[ ! "$CONFIRMATION" =~ ^[Yy][Ee][Ss]$ ]]; then
     echo -e "${YELLOW}Reversal cancelled. No changes were made.${NC}"
@@ -276,6 +256,7 @@ if [ "$BACKUP_TYPE" = "nginx" ]; then
     NGINX_STATE_FILE="$BACKUP_DIR/nginx_state.log"
     if file_exists "$NGINX_STATE_FILE"; then
         success_msg "Found Nginx state log: $NGINX_STATE_FILE"
+        # shellcheck disable=SC1090
         source "$NGINX_STATE_FILE"
         log "Original Nginx state loaded"
     else
@@ -460,36 +441,36 @@ fi
 
 # Final success message
 clear
-echo -e "${BLUE}┌───────────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BLUE}│${GREEN}                      REVERSION COMPLETED                          ${BLUE}│${NC}"
-echo -e "${BLUE}├───────────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${WHITE}Your server has been successfully reverted to its previous state.  ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}Reversion Summary:                                                 ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• Restored from:${NC} $BACKUP_DIR                  ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• Backup Type:${NC} $BACKUP_TYPE                                               ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• Pre-reversion Backup:${NC} $REVERSION_BACKUP_DIR      ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}Services Restarted:                                               ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• Apache                                                           ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• MySQL                                                            ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• CSF Firewall                                                     ${BLUE}│${NC}"
+btop "$BLUE"
+bctr "$BLUE" "${GREEN}REVERSION COMPLETED"
+bsep "$BLUE"
+brow "$BLUE" ""
+brow "$BLUE" " ${WHITE}Your server has been successfully reverted to its previous state."
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}Reversion Summary:"
+brow "$BLUE" " ${GREEN}• Restored from:${NC} $BACKUP_DIR"
+brow "$BLUE" " ${GREEN}• Backup Type:${NC} $BACKUP_TYPE"
+brow "$BLUE" " ${GREEN}• Pre-reversion Backup:${NC} $REVERSION_BACKUP_DIR"
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}Services Restarted:"
+brow "$BLUE" " ${WHITE}• Apache"
+brow "$BLUE" " ${WHITE}• MySQL"
+brow "$BLUE" " ${WHITE}• CSF Firewall"
 if [ "$BACKUP_TYPE" = "nginx" ]; then
-echo -e "${BLUE}│ ${WHITE}• Nginx/Engintron                                                  ${BLUE}│${NC}"
+brow "$BLUE" " ${WHITE}• Nginx/Engintron"
 fi
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}Next Steps:                                                       ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• A system reboot is recommended to complete the reversion         ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• Verify your services are functioning correctly                   ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• Review the log file at $LOG_FILE        ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}├───────────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${CYAN}If you found this script helpful, please consider supporting:         ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}☕ https://ko-fi.com/ahtshamjutt                                     ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}└───────────────────────────────────────────────────────────────────────┘${NC}"
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}Next Steps:"
+brow "$BLUE" " ${WHITE}• A system reboot is recommended to complete the reversion"
+brow "$BLUE" " ${WHITE}• Verify your services are functioning correctly"
+brow "$BLUE" " ${WHITE}• Review the log file at $LOG_FILE"
+brow "$BLUE" ""
+bsep "$BLUE"
+brow "$BLUE" ""
+brow "$BLUE" " ${CYAN}If you found this script helpful, please consider supporting:"
+brow "$BLUE" " ${WHITE}☕ https://ko-fi.com/ahtshamjutt"
+brow "$BLUE" ""
+bbot "$BLUE"
 echo ""
 echo -e "${YELLOW}A system reboot is recommended to complete the reversion.${NC}"
 echo -e "${GREEN}Please run 'reboot' when convenient.${NC}"

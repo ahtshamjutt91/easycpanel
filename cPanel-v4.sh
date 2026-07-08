@@ -1,42 +1,18 @@
 #!/bin/bash
-# Define color variables
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-NC='\033[0m' # No Color
-
-# Function to check OS compatibility
-check_os_compatibility() {
-    # Get OS details
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        OS_NAME=$ID
-        VERSION_ID=$VERSION_ID
-        # Extract major version number
-        MAJOR_VERSION=$(echo $VERSION_ID | cut -d. -f1)
-    else
-        echo -e "${RED}✗${NC} Cannot determine OS. /etc/os-release file not found."
-        exit 1
-    fi
-
-    # Check if OS is compatible
-    if [[ "$OS_NAME" == "almalinux" && ("$MAJOR_VERSION" == "8" || "$MAJOR_VERSION" == "9") ]] || 
-       [[ "$OS_NAME" == "cloudlinux" && ("$MAJOR_VERSION" == "8" || "$MAJOR_VERSION" == "9") ]]; then
-        echo -e "${GREEN}✓${NC} Compatible OS detected: $OS_NAME $VERSION_ID"
-        sleep 1
-    else
-        echo -e "${RED}✗${NC} Incompatible OS detected: $OS_NAME $VERSION_ID"
-        echo -e "${YELLOW}This script is designed to work only with:${NC}"
-        echo -e "${WHITE}- AlmaLinux 8.x${NC}"
-        echo -e "${WHITE}- AlmaLinux 9.x${NC}"
-        echo -e "${WHITE}- CloudLinux 8.x${NC}"
-        echo -e "${WHITE}- CloudLinux 9.x${NC}"
-        exit 1
-    fi
-}
+# ── Load the EasycPanel shared library ────────────────────────────────
+# Colors, box drawing, logging, backups, detection and tuning helpers
+# live in lib.sh. If this script was downloaded standalone, lib.sh is
+# fetched from the project mirror first.
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+if [ ! -f "$SCRIPT_DIR/lib.sh" ]; then
+    wget -q -O "$SCRIPT_DIR/lib.sh" "https://script.ahtshamjutt.com/easycpanel/lib.sh" || rm -f "$SCRIPT_DIR/lib.sh"
+fi
+if [ ! -f "$SCRIPT_DIR/lib.sh" ]; then
+    echo "FATAL: lib.sh is missing and could not be downloaded from the project mirror."
+    exit 1
+fi
+# shellcheck source=lib.sh
+. "$SCRIPT_DIR/lib.sh"
 
 # Clear the screen for a clean look
 clear
@@ -45,27 +21,27 @@ clear
 check_os_compatibility
 
 # Display a compact banner
-echo -e "${BLUE}┌────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BLUE}│${GREEN}        cPanel Configuration, Hardening & Security      ${BLUE}│${NC}"
-echo -e "${BLUE}│${YELLOW}              Created by Ahtsham Jutt                   ${BLUE}│${NC}"
-echo -e "${BLUE}│${WHITE}       Website: ahtshamjutt.com | me@ahtshamjutt.com     ${BLUE}│${NC}"
-echo -e "${BLUE}│${CYAN}       Support: ${WHITE}https://ko-fi.com/ahtshamjutt ${CYAN}☕         ${BLUE}│${NC}"
-echo -e "${BLUE}└────────────────────────────────────────────────────────┘${NC}"
+btop "$BLUE"
+bctr "$BLUE" "${GREEN}cPanel Configuration, Hardening & Security"
+bctr "$BLUE" "${YELLOW}Created by Ahtsham Jutt"
+bctr "$BLUE" "${WHITE}Website: ahtshamjutt.com | me@ahtshamjutt.com"
+bctr "$BLUE" "${CYAN}Support: ${WHITE}https://ko-fi.com/ahtshamjutt ${CYAN}☕"
+bbot "$BLUE"
 
 # Pause the script for 1 second
 sleep 1
 
 # Simplified menu for user choice
-echo -e "\n${CYAN}┌────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${WHITE}           Please choose an option:             ${CYAN}│${NC}"
-echo -e "${CYAN}├────────────────────────────────────────────────┤${NC}"
-echo -e "${CYAN}│ ${GREEN}1.${WHITE} Install cPanel on a fresh server ${YELLOW}(AlmaLinux 8/9)${CYAN} │${NC}"
-echo -e "${CYAN}│ ${GREEN}2.${WHITE} Secure and optimize existing cPanel server  ${CYAN}│${NC}"
-echo -e "${CYAN}└────────────────────────────────────────────────┘${NC}"
+echo; btop "$CYAN"
+bctr "$CYAN" "${WHITE}Please choose an option:"
+bsep "$CYAN"
+brow "$CYAN" " ${GREEN}1.${WHITE} Install cPanel on a fresh server ${YELLOW}(AlmaLinux 8/9)"
+brow "$CYAN" " ${GREEN}2.${WHITE} Secure and optimize existing cPanel server"
+bbot "$CYAN"
 
 # Read the user's choice
 echo -e "\n${YELLOW}Enter your choice (1 or 2):${NC}"
-read -p "▶ " choice
+read -rp "▶ " choice
 
 # Process the user's choice
 case $choice in

@@ -1,152 +1,54 @@
 #!/bin/bash
-# Define color variables
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-NC='\033[0m' # No Color
+# ── Load the EasycPanel shared library ────────────────────────────────
+# Colors, box drawing, logging, backups, detection and tuning helpers
+# live in lib.sh. If this script was downloaded standalone, lib.sh is
+# fetched from the project mirror first.
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+if [ ! -f "$SCRIPT_DIR/lib.sh" ]; then
+    wget -q -O "$SCRIPT_DIR/lib.sh" "https://script.ahtshamjutt.com/easycpanel/lib.sh" || rm -f "$SCRIPT_DIR/lib.sh"
+fi
+if [ ! -f "$SCRIPT_DIR/lib.sh" ]; then
+    echo "FATAL: lib.sh is missing and could not be downloaded from the project mirror."
+    exit 1
+fi
+# shellcheck source=lib.sh
+. "$SCRIPT_DIR/lib.sh"
 
 # Initialize installation flag (used to control screen clearing)
 INSTALLATION_STARTED="no"
 
-# Get the directory where the script is located
-SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-
 # Define the log file location
 LOG_FILE="/root/panelbot-serversetup.log"
 
-# Function to add a log entry and echo it to the terminal
-log() {
-    # Add timestamped entry to log file
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $@" >> "${LOG_FILE}"
-    # Display clean message without timestamp on screen
-    echo -e "${CYAN}$@${NC}"
-}
-
-# Function to display section headers with pause and clear screen
-# Only start clearing screen after cPanel installation begins
-section_header() {
-    # Only clear screen for sections after initial setup
-    if [[ "$INSTALLATION_STARTED" == "yes" ]]; then
-        clear
-    fi
-    
-    echo -e "\n${BLUE}┌─────────────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${BLUE}│${WHITE} $1 ${BLUE}│${NC}"
-    echo -e "${BLUE}└─────────────────────────────────────────────────────────────────┘${NC}"
-    log "$1"
-    
-    # Longer pause for readability (2 seconds)
-    sleep 2
-}
-
-# Function to display process steps
-process_step() {
-    echo -e "${YELLOW}➤${NC} $@"
-    sleep 1
-}
-
-# Function to display success message
-success_msg() {
-    echo -e "${GREEN}✓${NC} $@"
-    log "$@"
-}
-
-# Function to display error message
-error_msg() {
-    echo -e "${RED}✗${NC} $@"
-    log "ERROR: $@"
-}
-
-# Function to display warning message
-warning_msg() {
-    echo -e "${YELLOW}⚠${NC} $@"
-    log "WARNING: $@"
-}
-
-# Function to display progress animation
-show_progress() {
-    echo -ne "${YELLOW}Processing${NC}"
-    for i in {1..5}; do
-        echo -ne "${YELLOW}.${NC}"
-        sleep 0.5
-    done
-    echo -e ""
-}
-
-# Function to detect OS and version
-detect_os() {
-    if [ -f /etc/os-release ]; then
-        . /etc/os-release
-        OS_NAME=$ID
-        VERSION_ID=$VERSION_ID
-        # Extract major version number
-        MAJOR_VERSION=$(echo $VERSION_ID | cut -d. -f1)
-        
-        # Set PHP versions based on OS
-        if [[ "$OS_NAME" == "almalinux" || "$OS_NAME" == "cloudlinux" ]]; then
-            if [[ "$MAJOR_VERSION" == "8" ]]; then
-                # For AlmaLinux/CloudLinux 8
-                PHP_VERSIONS=("ea-php74" "ea-php80" "ea-php81" "ea-php82" "ea-php83" "ea-php84")
-                IMAGICK_COMPATIBLE=("ea-php74" "ea-php80" "ea-php81" "ea-php82")
-                DEFAULT_PHP="ea-php82"
-            elif [[ "$MAJOR_VERSION" == "9" ]]; then
-                # For AlmaLinux/CloudLinux 9
-                PHP_VERSIONS=("ea-php80" "ea-php81" "ea-php82" "ea-php83" "ea-php84")
-                IMAGICK_COMPATIBLE=("ea-php80" "ea-php81" "ea-php82")
-                DEFAULT_PHP="ea-php82"
-            else
-                error_msg "Unsupported version: $OS_NAME $VERSION_ID"
-                exit 1
-            fi
-            
-            success_msg "Detected $OS_NAME $VERSION_ID"
-            log "Setting PHP versions: ${PHP_VERSIONS[@]}"
-            log "ImageMagick compatible PHP versions: ${IMAGICK_COMPATIBLE[@]}"
-        else
-            error_msg "Unsupported OS: $OS_NAME"
-            exit 1
-        fi
-    else
-        error_msg "Cannot determine OS. /etc/os-release file not found."
-        exit 1
-    fi
-}
-
 # Check for Root Privileges
-if [[ $EUID -ne 0 ]]; then
-   error_msg "This script must be run as root!"
-   exit 1
-fi
+require_root
 
 # Clear the screen for a clean look
 clear
 
 # Display a compact banner
-echo -e "${BLUE}┌────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BLUE}│${GREEN}        cPanel Configuration, Hardening & Security      ${BLUE}│${NC}"
-echo -e "${BLUE}│${YELLOW}              Created by Ahtsham Jutt                   ${BLUE}│${NC}"
-echo -e "${BLUE}│${WHITE}       Website: ahtshamjutt.com | me@ahtshamjutt.com     ${BLUE}│${NC}"
-echo -e "${BLUE}│${CYAN}       Support: ${WHITE}https://ko-fi.com/ahtshamjutt ${CYAN}☕         ${BLUE}│${NC}"
-echo -e "${BLUE}└────────────────────────────────────────────────────────┘${NC}"
+btop "$BLUE"
+bctr "$BLUE" "${GREEN}cPanel Configuration, Hardening & Security"
+bctr "$BLUE" "${YELLOW}Created by Ahtsham Jutt"
+bctr "$BLUE" "${WHITE}Website: ahtshamjutt.com | me@ahtshamjutt.com"
+bctr "$BLUE" "${CYAN}Support: ${WHITE}https://ko-fi.com/ahtshamjutt ${CYAN}☕"
+bbot "$BLUE"
 
 # Display installation time notice
-echo -e "\n${YELLOW}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${YELLOW}│${WHITE}                      IMPORTANT NOTICE                         ${YELLOW}│${NC}"
-echo -e "${YELLOW}├─────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${YELLOW}│${WHITE} • The total installation time depends on your server's:       ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE}   - CPU performance                                           ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE}   - Disk I/O speed                                            ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE}   - Network connection                                        ${YELLOW}│${NC}"
-echo -e "${YELLOW}│                                                                 ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE} • cPanel installation alone can take 30-60 minutes            ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE} • Full script completion may take 1-2 hours                   ${YELLOW}│${NC}"
-echo -e "${YELLOW}│                                                                 ${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE} • Please be patient - this is not related to script efficiency${YELLOW}│${NC}"
-echo -e "${YELLOW}│${WHITE}   but depends on server resources and internet speed          ${YELLOW}│${NC}"
-echo -e "${YELLOW}└─────────────────────────────────────────────────────────────────┘${NC}"
+echo; btop "$YELLOW"
+bctr "$YELLOW" "${WHITE}IMPORTANT NOTICE"
+bsep "$YELLOW"
+brow "$YELLOW" "${WHITE} • The total installation time depends on your server's:"
+brow "$YELLOW" "${WHITE}   - CPU performance"
+brow "$YELLOW" "${WHITE}   - Disk I/O speed"
+brow "$YELLOW" "${WHITE}   - Network connection"
+brow "$YELLOW" ""
+brow "$YELLOW" "${WHITE} • cPanel installation alone can take 30-60 minutes"
+brow "$YELLOW" "${WHITE} • Full script completion may take 1-2 hours"
+brow "$YELLOW" ""
+brow "$YELLOW" "${WHITE} • Please be patient - this is not related to script efficiency"
+brow "$YELLOW" "${WHITE}   but depends on server resources and internet speed"
+bbot "$YELLOW"
 sleep 5
 
 # Detect OS and set PHP versions
@@ -156,27 +58,36 @@ detect_os
 # Collect information
 section_header "Required Information"
 
-echo -e "${CYAN}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${WHITE} Please provide your domain/website URL (e.g., example.com):     ${CYAN}│${NC}"
-echo -e "${CYAN}└─────────────────────────────────────────────────────────────────┘${NC}"
-read -p "▶ " domain
+btop "$CYAN"
+brow "$CYAN" "${WHITE} Please provide your domain/website URL (e.g., example.com):"
+bbot "$CYAN"
+while true; do
+    read -rp "▶ " domain
+    domain=${domain#http://}; domain=${domain#https://}; domain=${domain%%/*}
+    [[ "$domain" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)+$ ]] && break
+    echo -e "${RED}✗${NC} Invalid domain. Enter a bare domain like ${GREEN}example.com${NC}"
+done
 log "Domain set to: $domain"
 
-echo -e "\n${CYAN}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${WHITE} Please provide your email address for server alerts:             ${CYAN}│${NC}"
-echo -e "${CYAN}└─────────────────────────────────────────────────────────────────┘${NC}"
-read -p "▶ " email
+echo; btop "$CYAN"
+brow "$CYAN" "${WHITE} Please provide your email address for server alerts:"
+bbot "$CYAN"
+while true; do
+    read -rp "▶ " email
+    [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] && break
+    echo -e "${RED}✗${NC} Invalid email address, please try again."
+done
 log "Email set to: $email"
 
-echo -e "\n${CYAN}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${WHITE} Server Usage Type:                                              ${CYAN}│${NC}"
-echo -e "${CYAN}├─────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${CYAN}│${WHITE} This affects how Apache and MySQL resources are allocated        ${CYAN}│${NC}"
-echo -e "${CYAN}└─────────────────────────────────────────────────────────────────┘${NC}"
+echo; btop "$CYAN"
+brow "$CYAN" "${WHITE} Server Usage Type:"
+bsep "$CYAN"
+brow "$CYAN" "${WHITE} This affects how Apache and MySQL resources are allocated"
+bbot "$CYAN"
 echo -e "${WHITE}How will this server be used?${NC}"
 echo -e "${GREEN}1.${NC} Personal Server ${WHITE}(for personal websites, optimized dynamically)${NC}"
 echo -e "${GREEN}2.${NC} Shared Hosting Server ${WHITE}(for hosting multiple client accounts)${NC}"
-read -p "▶ " server_usage_choice
+read -rp "▶ " server_usage_choice
 
 if [[ "$server_usage_choice" == "2" ]]; then
     SERVER_TYPE="shared"
@@ -187,17 +98,17 @@ else
 fi
 log "Server type set to: $SERVER_TYPE"
 
-echo -e "\n${CYAN}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${WHITE} SSH Port Configuration:                                          ${CYAN}│${NC}"
-echo -e "${CYAN}├─────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${CYAN}│${YELLOW} WARNING: Using default port 22 is NOT recommended for security  ${CYAN}│${NC}"
-echo -e "${CYAN}│${YELLOW} reasons. It's a primary target for brute force attacks.         ${CYAN}│${NC}"
-echo -e "${CYAN}└─────────────────────────────────────────────────────────────────┘${NC}"
+echo; btop "$CYAN"
+brow "$CYAN" "${WHITE} SSH Port Configuration:"
+bsep "$CYAN"
+brow "$CYAN" "${YELLOW} WARNING: Using default port 22 is NOT recommended for security"
+brow "$CYAN" "${YELLOW} reasons. It's a primary target for brute force attacks."
+bbot "$CYAN"
 echo -e "${WHITE}Choose your SSH port configuration:${NC}"
 echo -e "${YELLOW}1.${NC} Use default SSH port 22 ${YELLOW}(Not Recommended)${NC}"
 echo -e "${GREEN}2.${NC} Use port 2200 ${GREEN}(Recommended)${NC}"
 echo -e "${GREEN}3.${NC} Use a randomly generated secure port ${GREEN}(Recommended)${NC}"
-read -p "▶ " ssh_port_choice
+read -rp "▶ " ssh_port_choice
 
 # Generate random SSH port between 1500 and 50000
 RANDOM_SSH_PORT=$(( $RANDOM % 48500 + 1500 ))
@@ -229,15 +140,15 @@ SERVER_IP=$(hostname -I | awk '{print $1}')
 success_msg "Server IP detected: $SERVER_IP"
 
 # Display information summary and proceed
-echo -e "\n${CYAN}┌─────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│${WHITE} Installation will proceed with the following settings:          ${CYAN}│${NC}"
-echo -e "${CYAN}├─────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${CYAN}│${WHITE} Domain: ${GREEN}$domain                                           ${CYAN}│${NC}"
-echo -e "${CYAN}│${WHITE} Email: ${GREEN}$email                                      ${CYAN}│${NC}"
-echo -e "${CYAN}│${WHITE} Server IP: ${GREEN}$SERVER_IP                                        ${CYAN}│${NC}"
-echo -e "${CYAN}│${WHITE} SSH Port: ${GREEN}$SSH_PORT                                            ${CYAN}│${NC}"
-echo -e "${CYAN}│${WHITE} Server Type: ${GREEN}$([ "$SERVER_TYPE" == "personal" ] && echo "Personal" || echo "Shared Hosting")     ${CYAN}│${NC}"
-echo -e "${CYAN}└─────────────────────────────────────────────────────────────────┘${NC}"
+echo; btop "$CYAN"
+brow "$CYAN" "${WHITE} Installation will proceed with the following settings:"
+bsep "$CYAN"
+brow "$CYAN" "${WHITE} Domain: ${GREEN}$domain"
+brow "$CYAN" "${WHITE} Email: ${GREEN}$email"
+brow "$CYAN" "${WHITE} Server IP: ${GREEN}$SERVER_IP"
+brow "$CYAN" "${WHITE} SSH Port: ${GREEN}$SSH_PORT"
+brow "$CYAN" "${WHITE} Server Type: ${GREEN}$([ "$SERVER_TYPE" == "personal" ] && echo "Personal" || echo "Shared Hosting")"
+bbot "$CYAN"
 
 log "Installation will proceed with: Domain=$domain, Email=$email, IP=$SERVER_IP, SSH Port=$SSH_PORT, Type=$SERVER_TYPE"
 sleep 4
@@ -367,7 +278,6 @@ log "Total RAM detected: ${TOTAL_MEM_MB} MB"
 # 2. Set resource allocation ratios
 APACHE_RATIO=0.35
 MYSQL_RATIO=0.30
-OS_RATIO=0.35
 
 # 3. Calculate memory allocations
 APACHE_MB=$(awk -v mem="$TOTAL_MEM_MB" -v r="$APACHE_RATIO" 'BEGIN{printf "%d", mem*r}')
@@ -467,7 +377,7 @@ if [[ "$SERVER_TYPE" == "personal" ]]; then
     MYSQL_GB_INT=$(awk -v mb="$MYSQL_MB" 'BEGIN { printf "%.0f", mb/1024 }')
     
     # Ensure minimum buffer size
-    if (( $(echo "$MYSQL_GB < 1" | bc -l) )); then
+    if [ "$(awk -v g="$MYSQL_GB" 'BEGIN{print (g<1)?1:0}')" = "1" ]; then
         BPOOL="512M"
     else
         BPOOL="${MYSQL_GB_INT}G"
@@ -521,11 +431,11 @@ yes | /usr/local/bin/ea_install_profile --install "/etc/cpanel/ea4/profiles/cust
 success_msg "EasyApache4 profile installed with PHP versions for $OS_NAME $MAJOR_VERSION"
 
 # Set default PHP version (PHP 8.2 for all OS versions)
-process_step "Setting default PHP version to ea-php82"
-whmapi1 php_set_system_default_version version=ea-php82
+process_step "Setting default PHP version to $DEFAULT_PHP"
+whmapi1 php_set_system_default_version version="$DEFAULT_PHP"
 whmapi1 php_get_installed_versions | awk '/ea-php/ {print $2}' | xargs -i -n1 whmapi1 php_set_handler version='{}' handler='cgi'
 /usr/local/cpanel/scripts/restartsrv_cpsrvd
-success_msg "Default PHP version set to PHP 8.2"
+success_msg "Default PHP version set to $DEFAULT_PHP"
 
 # Configure PHP settings
 section_header "Configuring PHP Settings"
@@ -564,7 +474,17 @@ dnf -y install memcached
 systemctl enable memcached
 perl -pi -e "s/OPTIONS=\"\"/OPTIONS=\"-l 127.0.0.1 -U 0\"/g" /etc/sysconfig/memcached
 systemctl restart memcached
-success_msg "Memcached installed and secured"
+success_msg "Memcached daemon installed and secured (localhost only, UDP off)"
+
+# Without the PHP extension the daemon is unusable from web apps
+process_step "Installing Memcached PHP extensions"
+dnf -y install libmemcached-awesome-devel cyrus-sasl-devel zlib-devel 2>/dev/null || dnf -y install libmemcached-devel cyrus-sasl-devel zlib-devel
+for php_version in "${PHP_VERSIONS[@]}"; do
+    printf '\n\n\n\n\n\n\n\n\n\n' | /opt/cpanel/${php_version}/root/usr/bin/pecl install memcached \
+        && log "memcached extension installed for $php_version" \
+        || warning_msg "memcached extension failed for $php_version (continuing)"
+done
+success_msg "Memcached PHP extensions processed"
 
 # Install ImageMagick with PHP extensions
 section_header "Installing ImageMagick"
@@ -573,7 +493,7 @@ dnf config-manager --set-enabled epel
 dnf install ImageMagick ImageMagick-devel -y
 
 for php_version in "${IMAGICK_COMPATIBLE[@]}"; do
-    if [[ " ${PHP_VERSIONS[*]} " =~ " ${php_version} " ]]; then
+    if [[ " ${PHP_VERSIONS[*]} " == *" ${php_version} "* ]]; then
         process_step "Installing ImageMagick extension for $php_version"
         yes | /opt/cpanel/${php_version}/root/usr/bin/pecl install imagick
     fi
@@ -613,55 +533,69 @@ if [ -f /etc/my.cnf ]; then
 fi
 
 # Create optimized my.cnf file (compatible with both MySQL and MariaDB)
+# Scale connections to server role
+MYSQL_MAX_CONN=$([ "$SERVER_TYPE" == "shared" ] && echo 500 || echo 200)
+# Keep a rollback copy of the previous config
+[ -f /etc/my.cnf ] && cp -f /etc/my.cnf /etc/my.cnf.pre-easycpanel
 cat > /etc/my.cnf << EOF
 [mysqld]
-# Basic Settings
-pid-file                = /var/lib/mysql/mysqld.pid
-socket                  = /var/lib/mysql/mysqld.sock
-datadir                 = /var/lib/mysql
-
-# MyISAM Settings
-key_buffer_size         = 16M
-max_allowed_packet      = 32M
-thread_stack            = 256K
-thread_cache_size       = 4
+# NOTE: socket/pid-file/datadir intentionally NOT overridden —
+# cPanel and the OS defaults are correct (mysql.sock); overriding them
+# breaks client connections and service detection.
 
 # InnoDB Settings
 innodb_buffer_pool_size = ${BPOOL}
 innodb_file_per_table   = 1
 innodb_flush_log_at_trx_commit = 2
-
-# MySQL 8.0 compatible settings
-# innodb_redo_log_capacity = 256M (MySQL 8.0.30+)
-# For older versions or MariaDB:
-innodb_log_file_size    = 128M
-innodb_log_buffer_size  = 8M
+innodb_flush_method     = O_DIRECT
+innodb_log_file_size    = 256M
+innodb_log_buffer_size  = 16M
 
 # Connection Settings
-max_connections         = 151
-wait_timeout            = 180
-interactive_timeout     = 180
+max_connections         = ${MYSQL_MAX_CONN}
+max_allowed_packet      = 256M
+wait_timeout            = 300
+interactive_timeout     = 300
+thread_cache_size       = 16
+thread_stack            = 256K
 
 # Table Settings
-table_open_cache        = 400
-open_files_limit        = 1000
+table_open_cache        = 4000
 
-# Logging
-log_error               = /var/lib/mysql/error.log
+# MyISAM Settings
+key_buffer_size         = 32M
 EOF
 
-# Restart MySQL to apply changes
-systemctl restart mysqld
-success_msg "MySQL optimized with innodb_buffer_pool_size = ${BPOOL}"
+# Restart MySQL via cPanel (works for MySQL and MariaDB) and verify it came back
+/scripts/restartsrv_mysql
+sleep 5
+if mysqladmin status >/dev/null 2>&1; then
+    success_msg "MySQL optimized with innodb_buffer_pool_size = ${BPOOL}"
+else
+    error_msg "MySQL failed to restart with the new config — rolling back"
+    [ -f /etc/my.cnf.pre-easycpanel ] && cp -f /etc/my.cnf.pre-easycpanel /etc/my.cnf
+    /scripts/restartsrv_mysql
+    warning_msg "Previous MySQL config restored; review /etc/my.cnf manually"
+fi
 
 # Install CSF Firewall
 section_header "Installing and Configuring CSF Firewall"
 process_step "Downloading and installing CSF Firewall"
-cd /usr/src
+cd /usr/src || exit 1
 rm -fv csf.tgz
-wget https://script.ahtshamjutt.com/easycpanel/csf.tgz
-tar -xzf csf.tgz
-cd csf
+# Download from the project mirror with checksum verification — if the
+# mirror is unreachable/broken or the file is tampered, ABORT rather
+# than continue without a firewall
+if ! download_verified csf.tgz "$EASYCPANEL_CSF_SHA256"; then
+    error_msg "Firewall NOT installed — fix the mirror and re-run this section."
+    exit 1
+fi
+if ! tar -xzf csf.tgz 2>/dev/null; then
+    error_msg "CSF download from script.ahtshamjutt.com failed or is corrupt."
+    error_msg "Firewall NOT installed — fix the mirror and re-run this section."
+    exit 1
+fi
+cd csf || exit 1
 sh install.sh
 
 # Configure CSF
@@ -680,11 +614,11 @@ if [ "$SSH_PORT" != "22" ]; then
     process_step "Updating firewall for custom SSH port $SSH_PORT"
     # Update TCP_IN ports to include new SSH port
     CURRENT_TCP_IN=$(grep ^TCP_IN /etc/csf/csf.conf | cut -d'"' -f2)
-    NEW_TCP_IN=$(echo $CURRENT_TCP_IN | sed "s/,22,/,$SSH_PORT,/")
+    NEW_TCP_IN=$(echo "$CURRENT_TCP_IN" | sed -E "s/(^|,)22(,|$)/\1$SSH_PORT\2/")
     sed -i "s/^TCP_IN = \"$CURRENT_TCP_IN\"/TCP_IN = \"$NEW_TCP_IN\"/g" /etc/csf/csf.conf
     
     # Also update sshd_config
-    sed -i "s/#Port 22/Port $SSH_PORT/g" /etc/ssh/sshd_config
+    sed -i -E "s/^#?Port [0-9]+/Port $SSH_PORT/" /etc/ssh/sshd_config
     log "SSH port changed from 22 to $SSH_PORT in sshd_config"
 else
     log "Keeping default SSH port 22"
@@ -736,10 +670,9 @@ sed -i 's/CONNLIMIT = ".*"/CONNLIMIT = "22;10,80;400,443;400"/g' /etc/csf/csf.co
 # Enable packet filtering for additional protection
 sed -i 's/PACKET_FILTER = ".*"/PACKET_FILTER = "1"/g' /etc/csf/csf.conf
 
-# Optimize kernel parameters for high traffic and better security
-sed -i 's/SYSCTL_SYNCL_QUEUE = ".*"/SYSCTL_SYNCL_QUEUE = "8192"/g' /etc/csf/csf.conf
-sed -i 's/SYSCTL_TCP_K_SYN_RETRIES = ".*"/SYSCTL_TCP_K_SYN_RETRIES = "2"/g' /etc/csf/csf.conf
-sed -i 's/SYSCTL_TCP_FINWAIT2_TIMEOUT = ".*"/SYSCTL_TCP_FINWAIT2_TIMEOUT = "30"/g' /etc/csf/csf.conf
+# Kernel network & memory tuning: connection queues, swappiness, BBR
+# congestion control and transparent hugepages (see lib.sh)
+apply_kernel_tuning
 
 # Add comment to CSF configuration file about adjusting these values
 echo "# Note: The DDoS protection values are set to balanced defaults." >> /etc/csf/csf.conf
@@ -774,7 +707,7 @@ success_msg "ModSecurity OWASP ruleset installed"
 # Install ImunifyAV
 section_header "Installing ImunifyAV"
 process_step "Downloading and installing ImunifyAV"
-cd /root/
+cd /root/ || exit 1
 wget https://repo.imunify360.cloudlinux.com/defence360/imav-deploy.sh
 bash imav-deploy.sh
 sed -i -e "s|cpu: .*|cpu: 1|" -e "s|io: .*|io: 1|" /etc/sysconfig/imunify360/imunify360.config
@@ -858,11 +791,22 @@ success_msg "Tweak settings configured for server security"
 # Install Redis
 section_header "Installing and Configuring Redis"
 process_step "Installing Redis"
-dnf -y install elinks
 dnf -y install redis
 systemctl enable redis
 systemctl start redis
 success_msg "Redis service installed and started"
+# Harden Redis on shared servers — without a password any local account can
+# read or flush the cache of every other account
+if [[ "$SERVER_TYPE" == "shared" ]]; then
+    REDIS_CONF=$([ -f /etc/redis/redis.conf ] && echo /etc/redis/redis.conf || echo /etc/redis.conf)
+    if [ -f "$REDIS_CONF" ] && ! grep -q '^requirepass' "$REDIS_CONF"; then
+        REDIS_PASS=$(openssl rand -hex 16)
+        echo "requirepass $REDIS_PASS" >> "$REDIS_CONF"
+        echo "$REDIS_PASS" > /root/.redis.pass && chmod 600 /root/.redis.pass
+        systemctl restart redis
+        success_msg "Redis password enabled (stored in /root/.redis.pass)"
+    fi
+fi
 
 process_step "Installing Redis PHP extensions"
 for php_version in "${PHP_VERSIONS[@]}"; do
@@ -872,28 +816,12 @@ done
 
 success_msg "Redis PHP extensions installed"
 
-# Install ConfigServer Mail Queue
-section_header "Installing ConfigServer Plugins"
-process_step "Installing ConfigServer Mail Queue"
-cd /usr/src
-rm -fv /usr/src/cmq.tgz
-wget http://download.configserver.com/cmq.tgz
-tar -xzf cmq.tgz
-cd cmq
-sh install.sh
-rm -Rfv /usr/src/cmq*
-success_msg "ConfigServer Mail Queue installed"
-
-# Install ConfigServer ModSecurity Control
-process_step "Installing ConfigServer ModSecurity Control"
-cd /usr/src
-rm -fv /usr/src/cmc.tgz
-wget http://download.configserver.com/cmc.tgz
-tar -xzf cmc.tgz
-cd cmc
-sh install.sh
-rm -Rfv /usr/src/cmc*
-success_msg "ConfigServer ModSecurity Control installed"
+# PHP performance tuning and system hardening
+section_header "PHP Performance Tuning & System Hardening"
+check_cpanel_license
+tune_php_opcache
+tune_php_fpm_pools
+secure_tmp
 
 # Setup login info script
 process_step "Setting up login information script"
@@ -921,53 +849,53 @@ success_msg "Cleanup completed"
 
 # Final banner with server information
 clear
-echo -e "${BLUE}┌───────────────────────────────────────────────────────────────────────┐${NC}"
-echo -e "${BLUE}│${GREEN}                         INSTALLATION COMPLETE                        ${BLUE}│${NC}"
-echo -e "${BLUE}├───────────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${WHITE}Your server has been successfully configured and secured.           ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}Server Information:                                                 ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• IP Address:${NC} $SERVER_IP                                          ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• SSH Port:${NC} $SSH_PORT                                                ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• Hostname:${NC} server.$domain                                      ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• Server Type:${NC} $([ "$SERVER_TYPE" == "personal" ] && echo "Personal" || echo "Shared Hosting")                                       ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}Apache Configuration:                                                ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• MaxRequestWorkers:${NC} $FINAL_MRW                                     ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• MySQL Buffer Pool:${NC} $BPOOL                                       ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
+btop "$BLUE"
+bctr "$BLUE" "${GREEN}INSTALLATION COMPLETE"
+bsep "$BLUE"
+brow "$BLUE" ""
+brow "$BLUE" " ${WHITE}Your server has been successfully configured and secured."
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}Server Information:"
+brow "$BLUE" " ${GREEN}• IP Address:${NC} $SERVER_IP"
+brow "$BLUE" " ${GREEN}• SSH Port:${NC} $SSH_PORT"
+brow "$BLUE" " ${GREEN}• Hostname:${NC} server.$domain"
+brow "$BLUE" " ${GREEN}• Server Type:${NC} $([ "$SERVER_TYPE" == "personal" ] && echo "Personal" || echo "Shared Hosting")"
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}Apache Configuration:"
+brow "$BLUE" " ${GREEN}• MaxRequestWorkers:${NC} $FINAL_MRW"
+brow "$BLUE" " ${GREEN}• MySQL Buffer Pool:${NC} $BPOOL"
+brow "$BLUE" ""
 
 # Add resource allocation disclaimer for Personal servers
 if [[ "$SERVER_TYPE" == "personal" ]]; then
-    echo -e "${BLUE}│ ${YELLOW}Resource Allocation:                                                ${BLUE}│${NC}"
-    echo -e "${BLUE}│ ${WHITE}• Apache and MySQL configurations are optimized based on a resource  ${BLUE}│${NC}"
-    echo -e "${BLUE}│ ${WHITE}  allocation ratio of 35% Apache, 30% MySQL, and 35% for the OS.     ${BLUE}│${NC}"
-    echo -e "${BLUE}│ ${WHITE}• These settings are automatically tuned to your server's resources  ${BLUE}│${NC}"
-    echo -e "${BLUE}│ ${WHITE}  and can be further optimized based on traffic patterns and volume. ${BLUE}│${NC}"
-    echo -e "${BLUE}│                                                                       │${NC}"
+    brow "$BLUE" " ${YELLOW}Resource Allocation:"
+    brow "$BLUE" " ${WHITE}• Apache and MySQL configurations are optimized based on a resource"
+    brow "$BLUE" " ${WHITE}  allocation ratio of 35% Apache, 30% MySQL, and 35% for the OS."
+    brow "$BLUE" " ${WHITE}• These settings are automatically tuned to your server's resources"
+    brow "$BLUE" " ${WHITE}  and can be further optimized based on traffic patterns and volume."
+    brow "$BLUE" ""
 fi
 
-echo -e "${BLUE}│ ${YELLOW}Access Information:                                                 ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• WHM URL:${NC} https://$SERVER_IP:2087                                ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• cPanel URL:${NC} https://$SERVER_IP:2083                             ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${RED}  (Ignore self-signed SSL warnings until domain SSL is setup)       ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}Security Features:                                                  ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• CSF Firewall:${NC} Enabled with DDoS protection                     ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• ModSecurity:${NC} Enabled with OWASP ruleset                        ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${GREEN}• ImunifyAV:${NC} Installed and configured                            ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${YELLOW}IMPORTANT:                                                           ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• MySQL Root Password has been set and saved in /root/.my.cnf        ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}• All details are logged in ${GREEN}/root/panelbot-serversetup.log         ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}├───────────────────────────────────────────────────────────────────────┤${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}│ ${CYAN}If you found this script helpful, please consider supporting:         ${BLUE}│${NC}"
-echo -e "${BLUE}│ ${WHITE}☕ https://ko-fi.com/ahtshamjutt                                     ${BLUE}│${NC}"
-echo -e "${BLUE}│                                                                       │${NC}"
-echo -e "${BLUE}└───────────────────────────────────────────────────────────────────────┘${NC}"
+brow "$BLUE" " ${YELLOW}Access Information:"
+brow "$BLUE" " ${GREEN}• WHM URL:${NC} https://$SERVER_IP:2087"
+brow "$BLUE" " ${GREEN}• cPanel URL:${NC} https://$SERVER_IP:2083"
+brow "$BLUE" " ${RED}  (Ignore self-signed SSL warnings until domain SSL is setup)"
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}Security Features:"
+brow "$BLUE" " ${GREEN}• CSF Firewall:${NC} Enabled with DDoS protection"
+brow "$BLUE" " ${GREEN}• ModSecurity:${NC} Enabled with OWASP ruleset"
+brow "$BLUE" " ${GREEN}• ImunifyAV:${NC} Installed and configured"
+brow "$BLUE" ""
+brow "$BLUE" " ${YELLOW}IMPORTANT:"
+brow "$BLUE" " ${WHITE}• MySQL Root Password has been set and saved in /root/.my.cnf"
+brow "$BLUE" " ${WHITE}• All details are logged in ${GREEN}/root/panelbot-serversetup.log"
+brow "$BLUE" ""
+bsep "$BLUE"
+brow "$BLUE" ""
+brow "$BLUE" " ${CYAN}If you found this script helpful, please consider supporting:"
+brow "$BLUE" " ${WHITE}☕ https://ko-fi.com/ahtshamjutt"
+brow "$BLUE" ""
+bbot "$BLUE"
 echo ""
 echo -e "${YELLOW}A system reboot is required to complete the setup.${NC}"
 echo -e "${GREEN}Please run 'reboot' when you're ready.${NC}"
