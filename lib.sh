@@ -19,6 +19,7 @@ EASYCPANEL_MIRROR="https://script.ahtshamjutt.com/easycpanel"
 
 # Pinned SHA256 checksums for mirror assets (csf.tgz is frozen upstream —
 # ConfigServer is retired, so this archive never changes)
+# shellcheck disable=SC2034  # consumed by the scripts that source this library
 EASYCPANEL_CSF_SHA256="2ed60f1ef0a49d9b6812e181703ed04b48aa509b9480d643e561dbc35ce10658"
 
 # Define color variables
@@ -217,6 +218,7 @@ check_os_compatibility() {
 }
 
 # Function to detect OS and version, and set the PHP version lists
+# shellcheck disable=SC2034  # PHP version variables are consumed by the sourcing scripts
 detect_os() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
