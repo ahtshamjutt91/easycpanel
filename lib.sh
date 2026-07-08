@@ -435,6 +435,48 @@ OPEOF
     return 0
 }
 
+# Cache daemon hardening shared by all branches: keep Redis/Memcached
+# out of LFD process alerts, their ports closed to the public, verify
+# the localhost binding, and right-size the memcached cache.
+secure_cache_daemons() {
+    local line changed=false
+    if [ -f /etc/csf/csf.pignore ]; then
+        for line in 'exe:/usr/bin/redis-server' 'exe:/usr/bin/memcached'; do
+            if ! grep -qxF "$line" /etc/csf/csf.pignore; then
+                echo "$line" >> /etc/csf/csf.pignore
+                changed=true
+            fi
+        done
+        # Cache ports must never be publicly reachable
+        if grep -E '^TCP_IN' /etc/csf/csf.conf 2>/dev/null | grep -Eqw '6379|11211'; then
+            sed -i '/^TCP_IN/ s/,6379\b//; /^TCP_IN/ s/,11211\b//' /etc/csf/csf.conf
+            csf -r >/dev/null 2>&1
+            changed=true
+        fi
+        [ "$changed" = true ] && systemctl restart lfd >/dev/null 2>&1
+        success_msg "Cache daemons ignored by LFD; ports 6379/11211 closed to the public"
+    fi
+
+    if [ -f /etc/sysconfig/memcached ]; then
+        # The OPTIONS edit elsewhere only matches pristine files — verify
+        # the localhost binding actually took effect
+        if ! grep -q '127.0.0.1' /etc/sysconfig/memcached; then
+            warning_msg "Memcached is NOT bound to localhost — check OPTIONS in /etc/sysconfig/memcached"
+        fi
+        # Right-size the cache on servers with RAM to spare
+        local ram_gb size
+        ram_gb=$(awk '/MemTotal/ {print int($2/1024/1024)}' /proc/meminfo)
+        if [ "$ram_gb" -ge 4 ] && grep -q '^CACHESIZE="64"' /etc/sysconfig/memcached; then
+            size=128
+            [ "${SERVER_TYPE:-shared}" = "personal" ] && size=256
+            sed -i "s/^CACHESIZE=\"64\"/CACHESIZE=\"$size\"/" /etc/sysconfig/memcached
+            systemctl restart memcached >/dev/null 2>&1
+            success_msg "Memcached cache size raised to ${size}MB"
+        fi
+    fi
+    return 0
+}
+
 # Install the newest stable PHP versions when EasyApache provides them,
 # with the same extension set as the EasyApache profiles. Versions not
 # yet published by cPanel are skipped gracefully, so this stays correct

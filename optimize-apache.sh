@@ -453,9 +453,16 @@ success_msg "Memcached configured for security (localhost only, UDP disabled)"
 process_step "Installing Memcached PHP extensions"
 dnf -y install libmemcached-awesome-devel cyrus-sasl-devel zlib-devel 2>/dev/null || dnf -y install libmemcached-devel cyrus-sasl-devel zlib-devel
 for php_version in $INSTALLED_PHP_VERSIONS; do
-    printf '\n\n\n\n\n\n\n\n\n\n' | /opt/cpanel/${php_version}/root/usr/bin/pecl install memcached \
-        && log "memcached extension installed for $php_version" \
-        || warning_msg "memcached extension failed for $php_version (continuing)"
+    if /opt/cpanel/${php_version}/root/usr/bin/php -m 2>/dev/null | grep -q '^memcached$'; then
+        log "memcached extension already present for $php_version"
+    # Prefer cPanel's packaged extension — it survives PHP updates
+    elif yum install -y "${php_version}-php-memcached" >/dev/null 2>&1; then
+        log "memcached extension (RPM) installed for $php_version"
+    else
+        printf '\n\n\n\n\n\n\n\n\n\n' | /opt/cpanel/${php_version}/root/usr/bin/pecl install memcached \
+            && log "memcached extension (PECL) installed for $php_version" \
+            || warning_msg "memcached extension failed for $php_version (continuing)"
+    fi
 done
 success_msg "Memcached PHP extensions processed"
 
@@ -856,6 +863,7 @@ section_header "PHP Performance Tuning & System Hardening"
 tune_php_opcache
 tune_php_fpm_pools
 secure_tmp
+secure_cache_daemons
 
 # Setup login info script
 process_step "Setting up login information script"
