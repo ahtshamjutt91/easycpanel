@@ -68,6 +68,15 @@ cd easycpanel && chmod +x cPanel-v4.sh && sh cPanel-v4.sh
   servers where it is not yet available
 - **Default PHP raised to 8.3** for new installations
 
+### Mail Security & Deliverability (New)
+- **Outbound spam containment**: Direct port-25 sending is blocked at the firewall so every
+  message goes through Exim where it is logged, attributed and rate-limited (ports 465/587
+  stay open for applications using external SMTP providers)
+- **Connect-time spam rejection**: Spamhaus and SpamCop RBLs, dictionary-attack protection
+  and SMTP ratelimiting enabled in Exim, with automatic rollback if the rebuild fails
+- **DKIM + SPF ensured for every account**, plus an rDNS/PTR check with clear guidance
+- **Resource trims**: BoxTrapper disabled, Exim stats retention capped, optional Greylisting
+
 ### Reliability Fixes
 - **MySQL/MariaDB configuration fix**: Removed the socket/pid/datadir overrides that caused
   "MySQL daemon startup failure" and broken client connections on some servers; restarts now
@@ -191,6 +200,9 @@ If EasycPanel has helped you, please consider supporting ongoing development and
 - Added opcache tuning for all installed PHP versions
 - Added /tmp hardening via cPanel securetmp
 - Added cPanel license validation with tier and account-count warnings
+- Added mail security section: firewall-enforced Exim-only sending on port 25, RBL and
+  dictionary-attack ACLs, DKIM/SPF sweep for existing accounts, BoxTrapper off, Exim stats
+  retention cap, optional Greylisting, rDNS/PTR verification
 - Added SHA256 checksum verification for mirror downloads
 - Extracted all shared helpers into lib.sh (single source of truth for every script)
 - Removed retired ConfigServer cmq/cmc plugins (discontinued upstream)

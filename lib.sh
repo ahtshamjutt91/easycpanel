@@ -435,6 +435,98 @@ OPEOF
     return 0
 }
 
+# Mail server security & deliverability: force outbound mail through
+# Exim where it is logged and rate-limited, reject the bulk of spam at
+# SMTP connect time, ensure DKIM/SPF on every account, trim resource
+# wasters and verify rDNS.
+secure_mail_server() {
+    # 1. Outbound: block direct port-25 connections from scripts and
+    # compromised accounts. Port 25 only — 465/587 stay open because
+    # customer applications legitimately send through external SMTP
+    # providers with authentication.
+    if [ -f /etc/csf/csf.conf ]; then
+        [ -n "${BACKUP_DIR:-}" ] && backup_file /etc/csf/csf.conf mail
+        sed -i 's/^SMTP_BLOCK = ".*"/SMTP_BLOCK = "1"/' /etc/csf/csf.conf
+        sed -i 's/^SMTP_ALLOWLOCAL = ".*"/SMTP_ALLOWLOCAL = "1"/' /etc/csf/csf.conf
+        sed -i 's/^SMTP_PORTS = ".*"/SMTP_PORTS = "25"/' /etc/csf/csf.conf
+        csf -r >/dev/null 2>&1
+        success_msg "Direct port-25 sending blocked — all mail now goes through Exim (logged and rate-limited)"
+    fi
+
+    # 2. Inbound: connect-time rejection via Exim ACLs (RBLs kill most
+    # spam before SpamAssassin spends CPU on it)
+    if [ -f /etc/exim.conf.localopts ]; then
+        [ -n "${BACKUP_DIR:-}" ] && backup_file /etc/exim.conf.localopts mail
+        cp -f /etc/exim.conf.localopts /etc/exim.conf.localopts.pre-easycpanel
+        local kv key
+        for kv in acl_spamhaus_rbl=1 acl_spamcop_rbl=1 acl_dictionary_attack=1 acl_ratelimit=1; do
+            key=${kv%%=*}
+            if grep -q "^${key}=" /etc/exim.conf.localopts; then
+                sed -i "s/^${key}=.*/${kv}/" /etc/exim.conf.localopts
+            else
+                echo "$kv" >> /etc/exim.conf.localopts
+            fi
+        done
+        if /scripts/buildeximconf >/dev/null 2>&1 && /scripts/restartsrv_exim >/dev/null 2>&1; then
+            success_msg "Exim ACLs on: Spamhaus/SpamCop RBLs, dictionary-attack protection, SMTP ratelimiting"
+        else
+            cp -f /etc/exim.conf.localopts.pre-easycpanel /etc/exim.conf.localopts
+            /scripts/buildeximconf >/dev/null 2>&1
+            /scripts/restartsrv_exim >/dev/null 2>&1
+            warning_msg "Exim rebuild failed — ACL changes rolled back; review WHM > Exim Configuration Manager"
+        fi
+    fi
+
+    # 3. DKIM + SPF for all existing accounts (new accounts get them at
+    # creation by cPanel default)
+    local u count=0
+    for u in $(find /var/cpanel/users -maxdepth 1 -type f -printf '%f\n' 2>/dev/null); do
+        [ -x /usr/local/cpanel/bin/dkim_keys_install ] && /usr/local/cpanel/bin/dkim_keys_install "$u" >/dev/null 2>&1
+        [ -x /usr/local/cpanel/bin/spf_installer ] && /usr/local/cpanel/bin/spf_installer "$u" >/dev/null 2>&1
+        count=$((count + 1))
+    done
+    if [ "$count" -gt 0 ]; then
+        success_msg "DKIM and SPF records ensured for $count account(s)"
+    else
+        log "No cPanel accounts yet — new accounts get DKIM/SPF automatically"
+    fi
+
+    # 4. Resource trims: BoxTrapper wastes CPU and generates backscatter;
+    # unbounded Exim stats bloat the database on busy servers
+    whmapi1 set_tweaksetting key=skipboxtrapper value=1 >/dev/null 2>&1
+    whmapi1 set_tweaksetting key=exim_retention_days value=30 >/dev/null 2>&1
+    whmapi1 set_tweaksetting key=skipspamassassin value=0 >/dev/null 2>&1
+    success_msg "BoxTrapper off, SpamAssassin available, Exim stats retention 30 days"
+
+    # 5. Greylisting is a trade-off (cuts spam sharply, delays all
+    # first-contact mail) — owner's decision
+    echo -e "${WHITE}Enable cPanel Greylisting? Cuts spam sharply but delays first-contact mail (y/N):${NC}"
+    read -rp "▶ " grey_choice
+    if [[ "$grey_choice" =~ ^[Yy]$ ]]; then
+        whmapi1 enable_cpgreylist >/dev/null 2>&1 \
+            && success_msg "Greylisting enabled" \
+            || warning_msg "Could not enable Greylisting — see WHM > Greylisting"
+    else
+        success_msg "Greylisting left off"
+    fi
+
+    # 6. rDNS/PTR check — the single most common deliverability failure
+    local mainip ptr hn
+    mainip=$(cat /var/cpanel/mainip 2>/dev/null)
+    hn=$(hostname -f 2>/dev/null || hostname)
+    if [ -n "$mainip" ] && command -v dig >/dev/null 2>&1; then
+        ptr=$(dig +short -x "$mainip" 2>/dev/null | sed 's/\.$//' | head -1)
+        if [ -z "$ptr" ]; then
+            warning_msg "No PTR (rDNS) record for $mainip — request one from your provider or outbound mail will be junked"
+        elif [ "$ptr" != "$hn" ]; then
+            warning_msg "PTR for $mainip is '$ptr' but the hostname is '$hn' — align them for deliverability"
+        else
+            success_msg "PTR record matches hostname ($hn)"
+        fi
+    fi
+    return 0
+}
+
 # Cache daemon hardening shared by all branches: keep Redis/Memcached
 # out of LFD process alerts, their ports closed to the public, verify
 # the localhost binding, and right-size the memcached cache.

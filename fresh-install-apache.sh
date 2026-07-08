@@ -834,6 +834,10 @@ tune_php_fpm_pools
 secure_tmp
 secure_cache_daemons
 
+# Mail server security and deliverability
+section_header "Mail Server Security & Deliverability"
+secure_mail_server
+
 # Setup login info script
 process_step "Setting up login information script"
 perl -pi -e "s/#PrintMotd yes/PrintMotd no/g" /etc/ssh/sshd_config
