@@ -480,11 +480,11 @@ secure_mail_server() {
     # 3. DKIM + SPF for all existing accounts (new accounts get them at
     # creation by cPanel default)
     local u count=0
-    for u in $(find /var/cpanel/users -maxdepth 1 -type f -printf '%f\n' 2>/dev/null); do
+    while IFS= read -r u; do
         [ -x /usr/local/cpanel/bin/dkim_keys_install ] && /usr/local/cpanel/bin/dkim_keys_install "$u" >/dev/null 2>&1
         [ -x /usr/local/cpanel/bin/spf_installer ] && /usr/local/cpanel/bin/spf_installer "$u" >/dev/null 2>&1
         count=$((count + 1))
-    done
+    done < <(find /var/cpanel/users -maxdepth 1 -type f -printf '%f\n' 2>/dev/null)
     if [ "$count" -gt 0 ]; then
         success_msg "DKIM and SPF records ensured for $count account(s)"
     else
