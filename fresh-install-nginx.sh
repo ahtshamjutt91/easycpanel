@@ -506,7 +506,10 @@ show_progress
 yes | /usr/local/bin/ea_install_profile --install "/etc/cpanel/ea4/profiles/custom/$EA4_PROFILE"
 success_msg "EasyApache4 profile installed with PHP versions for $OS_NAME $MAJOR_VERSION"
 
-# Set default PHP version (PHP 8.2 for all OS versions)
+# Install the newest stable PHP version when EasyApache provides it
+install_latest_php
+
+# Set default PHP version
 process_step "Setting default PHP version to $DEFAULT_PHP"
 whmapi1 php_set_system_default_version version="$DEFAULT_PHP"
 whmapi1 php_get_installed_versions | awk '/ea-php/ {print $2}' | xargs -i -n1 whmapi1 php_set_handler version='{}' handler='cgi'

@@ -46,6 +46,11 @@ brow "$YELLOW" "${GREEN} Option 2: ${WHITE}NGinx as Reverse Proxy with Apache & 
 bctr "$YELLOW" "${WHITE}• Installs Engintron (NGinx reverse proxy)"
 bctr "$YELLOW" "${WHITE}• Keeps Apache as backend with PHP-FPM"
 bctr "$YELLOW" "${WHITE}• Better for high-traffic websites"
+brow "$YELLOW" ""
+brow "$YELLOW" "${GREEN} Option 3: ${WHITE}LiteSpeed Web Server (replaces Apache)"
+bctr "$YELLOW" "${WHITE}• Drop-in Apache replacement, reads .htaccess natively"
+bctr "$YELLOW" "${WHITE}• LSCache page caching and HTTP/3 support"
+bctr "$YELLOW" "${WHITE}• Requires a LiteSpeed license (free tier available)"
 bbot "$YELLOW"
 
 # Pause to read the options
@@ -58,9 +63,10 @@ while true; do
   bbot "$CYAN"
   echo -e "\n${GREEN}1.${NC} Optimize cPanel with ${GREEN}Apache Web Server${NC} (MPM Event + PHP-FPM)"
   echo -e "${GREEN}2.${NC} Optimize cPanel with ${GREEN}NGinx Reverse Proxy${NC} (Engintron + Apache + PHP-FPM)"
-  
+  echo -e "${GREEN}3.${NC} Install and optimize ${GREEN}LiteSpeed Web Server${NC} (license required)"
+
   # Get user choice with better prompt
-  echo -e "\n${YELLOW}Enter your choice (1 or 2):${NC}"
+  echo -e "\n${YELLOW}Enter your choice (1, 2 or 3):${NC}"
   read -rp "▶ " choice
   
   # Action based on choice with visual feedback
@@ -77,8 +83,14 @@ while true; do
       chmod +x optimize-nginx.sh && bash optimize-nginx.sh
       break
       ;;
+    3)
+      echo -e "\n${GREEN}✓${NC} Selected: Installing and optimizing LiteSpeed Web Server"
+      echo -e "${YELLOW}Executing LiteSpeed script...${NC}"
+      chmod +x litespeed.sh && bash litespeed.sh
+      break
+      ;;
     *)
-      echo -e "\n${RED}✗${NC} Invalid choice. Please select either ${GREEN}1${NC} or ${GREEN}2${NC}."
+      echo -e "\n${RED}✗${NC} Invalid choice. Please select ${GREEN}1${NC}, ${GREEN}2${NC} or ${GREEN}3${NC}."
       sleep 1
       ;;
   esac

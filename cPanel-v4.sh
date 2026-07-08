@@ -14,6 +14,24 @@ fi
 # shellcheck source=lib.sh
 . "$SCRIPT_DIR/lib.sh"
 
+# Quick-install bootstrap: when only this file was downloaded, fetch the
+# companion scripts and profiles from the project mirror
+REQUIRED_FILES=(fresh-install.sh fresh-install-apache.sh fresh-install-nginx.sh
+    optimize-cpanel.sh optimize-apache.sh optimize-nginx.sh litespeed.sh
+    revert-optimization.sh login-info.sh
+    event-php-fpm-almalinux8.json event-php-fpm-almalinux9.json)
+for req in "${REQUIRED_FILES[@]}"; do
+    if [ ! -f "$SCRIPT_DIR/$req" ]; then
+        echo -e "${YELLOW}Fetching $req from the project mirror...${NC}"
+        if ! wget -q -O "$SCRIPT_DIR/$req" "https://script.ahtshamjutt.com/easycpanel/$req"; then
+            rm -f "$SCRIPT_DIR/$req"
+            echo -e "${RED}✗${NC} Could not download $req from the project mirror."
+            exit 1
+        fi
+    fi
+done
+chmod +x "$SCRIPT_DIR"/*.sh
+
 # Clear the screen for a clean look
 clear
 

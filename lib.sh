@@ -233,12 +233,12 @@ detect_os() {
                 # For AlmaLinux/CloudLinux 8
                 PHP_VERSIONS=("ea-php74" "ea-php80" "ea-php81" "ea-php82" "ea-php83" "ea-php84")
                 IMAGICK_COMPATIBLE=("ea-php74" "ea-php80" "ea-php81" "ea-php82")
-                DEFAULT_PHP="ea-php82"
+                DEFAULT_PHP="ea-php83"
             elif [[ "$MAJOR_VERSION" == "9" ]]; then
                 # For AlmaLinux/CloudLinux 9
                 PHP_VERSIONS=("ea-php80" "ea-php81" "ea-php82" "ea-php83" "ea-php84")
                 IMAGICK_COMPATIBLE=("ea-php80" "ea-php81" "ea-php82")
-                DEFAULT_PHP="ea-php82"
+                DEFAULT_PHP="ea-php83"
             else
                 error_msg "Unsupported version: $OS_NAME $VERSION_ID"
                 exit 1
@@ -432,6 +432,37 @@ OPEOF
     else
         warning_msg "No EA-PHP installations found — opcache tuning skipped"
     fi
+    return 0
+}
+
+# Install the newest stable PHP versions when EasyApache provides them,
+# with the same extension set as the EasyApache profiles. Versions not
+# yet published by cPanel are skipped gracefully, so this stays correct
+# as new PHP releases appear.
+install_latest_php() {
+    local ver ext pkgs
+    for ver in ea-php85; do
+        if [ -d "/opt/cpanel/$ver" ]; then
+            success_msg "$ver already installed"
+            continue
+        fi
+        if yum -q list available "$ver" >/dev/null 2>&1; then
+            process_step "Installing $ver with the full extension set"
+            pkgs="$ver ${ver}-runtime ${ver}-pear"
+            for ext in bcmath calendar cli common curl devel exif fileinfo fpm ftp gd gettext iconv litespeed mbstring memcached mysqlnd opcache pdo posix soap sockets xml zip; do
+                pkgs="$pkgs ${ver}-php-${ext}"
+            done
+            # shellcheck disable=SC2086
+            if yum install -y $pkgs >/dev/null 2>&1; then
+                success_msg "$ver installed with required extensions"
+                PHP_VERSIONS+=("$ver")
+            else
+                warning_msg "$ver install failed — continuing without it"
+            fi
+        else
+            log "$ver not yet available in EasyApache — skipping"
+        fi
+    done
     return 0
 }
 

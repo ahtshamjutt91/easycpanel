@@ -376,6 +376,9 @@ fi
 # Configure EasyApache4 PHP versions
 section_header "Configuring PHP Settings"
 
+# Install the newest stable PHP version when EasyApache provides it
+install_latest_php
+
 # Get installed PHP versions
 INSTALLED_PHP_VERSIONS=$(whmapi1 php_get_installed_versions | grep ea-php | awk '{print $2}' | tr '\n' ' ')
 

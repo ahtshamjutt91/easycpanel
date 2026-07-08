@@ -45,6 +45,25 @@ cd easycpanel && chmod +x cPanel-v4.sh && sh cPanel-v4.sh
 
 ## What's New in Version 4.1
 
+### LiteSpeed Web Server Support (New)
+- **Third web server option**: Install LiteSpeed Enterprise as a drop-in Apache replacement
+  (reads .htaccess natively) from the optimization menu
+- **License guardrails**: Pre-flight checks compare your license tier against server RAM,
+  domain and account counts before anything is installed — LiteSpeed refuses to run on
+  servers that exceed the tier's RAM limit, so the script catches this up front
+- **Safe rollout**: Installs alongside Apache on a port offset first so you can test, with
+  one-click switchover and rollback through the WHM plugin
+- **LSCache**: WordPress cache plugin deployment (with confirmation before touching customer
+  sites on shared servers), HTTP/3 (QUIC) firewall configuration, WebAdmin console lockdown
+  with a generated password, and OWASP ModSecurity rules carried over from Apache
+
+### PHP Version Coverage
+- **Newest stable PHP auto-install**: When cPanel publishes a new PHP version (such as
+  PHP 8.5), the scripts detect and install it with the full extension set (bcmath, curl,
+  gd, mbstring, memcached, mysqlnd, opcache, soap, zip and more) — skipped gracefully on
+  servers where it is not yet available
+- **Default PHP raised to 8.3** for new installations
+
 ### Reliability Fixes
 - **MySQL/MariaDB configuration fix**: Removed the socket/pid/datadir overrides that caused
   "MySQL daemon startup failure" and broken client connections on some servers; restarts now
@@ -144,6 +163,13 @@ If EasycPanel has helped you, please consider supporting ongoing development and
 ## Detailed Changelog
 
 ### Version 4.1 (July 2026)
+- Added LiteSpeed Web Server as a third web server option with license tier pre-flight
+  checks (RAM/domain/account limits), guided port-offset installation with rollback,
+  LSCache deployment, HTTP/3 firewall setup and WebAdmin hardening
+- Added automatic installation of the newest stable PHP version with the full extension
+  set as soon as cPanel publishes it; raised the default PHP version to 8.3
+- Quick-install now bootstraps all companion files automatically when only cPanel-v4.sh
+  was downloaded
 - Fixed MySQL/MariaDB startup failures caused by socket, pid-file and datadir overrides in
   the generated /etc/my.cnf; corrected accidental downgrades of table_open_cache and
   max_allowed_packet; restarts now health-check MySQL and roll back automatically on failure
