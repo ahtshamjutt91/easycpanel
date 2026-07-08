@@ -441,6 +441,7 @@ OPEOF
 # as new PHP releases appear.
 install_latest_php() {
     local ver ext pkgs
+    # shellcheck disable=SC2043  # single-item list on purpose; append future PHP versions here
     for ver in ea-php85; do
         if [ -d "/opt/cpanel/$ver" ]; then
             success_msg "$ver already installed"
