@@ -51,8 +51,12 @@ cd easycpanel && chmod +x cPanel-v4.sh && sh cPanel-v4.sh
 - **License guardrails**: Pre-flight checks compare your license tier against server RAM,
   domain and account counts before anything is installed — LiteSpeed refuses to run on
   servers that exceed the tier's RAM limit, so the script catches this up front
-- **Safe rollout**: Installs alongside Apache on a port offset first so you can test, with
-  one-click switchover and rollback through the WHM plugin
+- **Fully unattended install**: Uses LiteSpeed's official autoinstaller (no WHM clicking),
+  converts the PHP stack for compatibility first (suPHP handlers, PHP-FPM off, mod_ruid2 and
+  mod_lsapi removed), builds TimeZoneDB, and provides a one-command rollback to Apache
+- **Production hardening**: LFD ignore entries (no false process alerts), WordPress
+  brute-force protection in drop mode, optional Cloudflare trusted-IP configuration for
+  correct visitor IPs, Imunify WAF vendor switch, and nightly stable-channel auto-updates
 - **LSCache**: WordPress cache plugin deployment (with confirmation before touching customer
   sites on shared servers), HTTP/3 (QUIC) firewall configuration, WebAdmin console lockdown
   with a generated password, and OWASP ModSecurity rules carried over from Apache
