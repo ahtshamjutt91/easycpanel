@@ -83,8 +83,11 @@ cd easycpanel && chmod +x cPanel-v4.sh && sh cPanel-v4.sh
   plugins) were discontinued upstream and are no longer installed
 
 ### Performance Improvements
-- **PHP-FPM pool tuning**: Pool defaults (max children, request recycling, idle timeout) are
-  now computed from server RAM and your usage profile instead of cPanel's minimal defaults
+- **PHP-FPM actually enabled and tuned**: FPM is now switched on for all current and future
+  domains (previously only the packages were installed), with pool defaults (process manager
+  mode, max children, request recycling, idle timeout) computed from server RAM and usage
+  profile — dynamic workers on personal servers, ondemand on shared — plus per-account
+  open_basedir isolation
 - **Opcache tuning**: Right-sized opcache memory and file limits applied to every installed
   PHP version
 - **Kernel tuning**: BBR congestion control (when the kernel supports it), sensible swappiness,

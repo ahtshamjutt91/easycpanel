@@ -467,13 +467,22 @@ install_latest_php() {
     return 0
 }
 
-# PHP-FPM pool tuning computed from server RAM and usage profile.
-# cPanel's per-domain pool defaults are very conservative; this sets
-# system-wide pool defaults which cPanel applies to every FPM pool.
+# PHP-FPM pool tuning computed from server RAM and usage profile, plus
+# actually enabling FPM for all current and future domains (installing
+# the packages alone does not turn FPM on). Shared servers use ondemand
+# (zero idle memory across many pools); personal servers use dynamic
+# (warm workers, no process-start latency for a busy site). open_basedir
+# is applied per pool so accounts cannot read outside their home.
 tune_php_fpm_pools() {
     local ram_gb mc profile="${SERVER_TYPE:-shared}"
     ram_gb=$(awk '/MemTotal/ {print int($2/1024/1024)}' /proc/meminfo)
     [ "$ram_gb" -lt 1 ] && ram_gb=1
+
+    # PHP-FPM needs roughly 2 GB RAM minimum (~30 MB per domain)
+    if [ "$ram_gb" -lt 2 ]; then
+        warning_msg "Server has under 2 GB RAM — keeping cPanel's default PHP-FPM configuration"
+        return 0
+    fi
 
     if [ "$profile" = "personal" ]; then
         mc=$(( ram_gb * 6 ))
@@ -490,17 +499,41 @@ tune_php_fpm_pools() {
         backup_file /var/cpanel/ApachePHPFPM/system_pool_defaults.yaml
     fi
 
-    cat > /var/cpanel/ApachePHPFPM/system_pool_defaults.yaml << FPMEOF
+    if [ "$profile" = "personal" ]; then
+        cat > /var/cpanel/ApachePHPFPM/system_pool_defaults.yaml << FPMEOF
+---
+pm: dynamic
+pm_max_children: $mc
+pm_start_servers: 3
+pm_min_spare_servers: 2
+pm_max_spare_servers: 8
+pm_max_requests: 500
+pm_process_idle_timeout: 10
+php_value_open_basedir: { name: 'php_value[open_basedir]', value: "[% documentroot %]:[% homedir %]:/var/cpanel/php/sessions/[% ea_php_version %]:/tmp:/var/tmp" }
+FPMEOF
+    else
+        cat > /var/cpanel/ApachePHPFPM/system_pool_defaults.yaml << FPMEOF
 ---
 pm: ondemand
 pm_max_children: $mc
 pm_max_requests: 500
 pm_process_idle_timeout: 10
+php_value_open_basedir: { name: 'php_value[open_basedir]', value: "[% documentroot %]:[% homedir %]:/var/cpanel/php/sessions/[% ea_php_version %]:/tmp:/var/tmp" }
 FPMEOF
+    fi
+
+    # Turn FPM on for new accounts and convert every existing domain
+    whmapi1 php_set_default_accounts_to_fpm default_accounts_to_fpm=1 >/dev/null 2>&1
+    whmapi1 convert_all_domains_to_fpm >/dev/null 2>&1
 
     if [ -x /scripts/php_fpm_config ]; then
         /scripts/php_fpm_config --rebuild >/dev/null 2>&1
-        success_msg "PHP-FPM pools tuned: pm=ondemand, max_children=$mc ($profile profile)"
+        if [ "$profile" = "personal" ]; then
+            success_msg "PHP-FPM enabled for all domains: pm=dynamic, max_children=$mc, open_basedir on"
+        else
+            success_msg "PHP-FPM enabled for all domains: pm=ondemand, max_children=$mc, open_basedir on"
+        fi
+        log "If pools saturate later, check: grep 'reached max_children' /opt/cpanel/ea-php*/root/usr/var/log/php-fpm/*"
     else
         warning_msg "php_fpm_config not found — FPM pool defaults written but not rebuilt"
     fi

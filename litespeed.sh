@@ -193,7 +193,7 @@ if [ ! -x "$LSWS_DIR/bin/lshttpd" ]; then
     success_msg "PHP handlers switched to suPHP"
 
     process_step "Disabling PHP-FPM on all domains (incompatible with LiteSpeed)"
-    whmapi1 php_set_default_accounts_to_fpm value=0 >/dev/null 2>&1
+    whmapi1 php_set_default_accounts_to_fpm default_accounts_to_fpm=0 >/dev/null 2>&1
     awk -F': ' '$1 != "*" {print $1}' /etc/userdomains 2>/dev/null | while read -r dom; do
         [ -n "$dom" ] && whmapi1 php_set_vhost_versions vhost-0="$dom" php_fpm=0 >/dev/null 2>&1
     done
